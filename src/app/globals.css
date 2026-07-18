@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* ────────────────────────────────────────────────
+   Global resets & responsive utilities
+───────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Thin scrollbar for panels */
+.thin-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+.thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.thin-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+/* Responsive table wrapper */
+.table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Safe area padding for mobile notch devices */
+.safe-top    { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Animated slide transitions */
+@keyframes slideInLeft  { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideInRight { from { transform: translateX(100%);  opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeInUp     { from { transform: translateY(12px);  opacity: 0; } to { transform: translateY(0);  opacity: 1; } }
+
+.animate-slide-in-left  { animation: slideInLeft  0.3s ease forwards; }
+.animate-slide-in-right { animation: slideInRight 0.3s ease forwards; }
+.animate-fade-in-up     { animation: fadeInUp     0.25s ease forwards; }
+
+/* Print — hide nav chrome, show only resume */
+@media print {
+  header, aside, footer, nav, .no-print { display: none !important; }
+  body { background: white !important; }
+  .print-full { width: 100% !important; max-width: 100% !important; }
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+}
