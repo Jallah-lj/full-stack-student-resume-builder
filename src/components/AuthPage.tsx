@@ -8,6 +8,7 @@ import {
   ShieldCheck, AlertTriangle, Database, Terminal, Eye, EyeOff,
 } from "lucide-react";
 import { api, errorMessage } from "@/lib/client-api";
+import { useApp } from "@/components/providers/AppProvider";
 
 const DEMO_PASSWORD = "demo1234";
 
@@ -20,6 +21,13 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isLogin = mode === "sign-in";
+  let appRefresh: (() => Promise<void>) | null = null;
+  try {
+    const appCtx = useApp();
+    appRefresh = appCtx.refresh;
+  } catch {
+    // AuthPage might run outside AppProvider on /sign-in page
+  }
 
   // Where to land after auth — set by the middleware when it intercepts.
   const nextPath = searchParams.get("next") || "/dashboard";
@@ -59,6 +67,13 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
         await api.post("/api/auth/login", { email: formData.email, password: formData.password });
       } else {
         await api.post("/api/auth/register", formData);
+      }
+      if (appRefresh) {
+        try {
+          await appRefresh();
+        } catch {
+          // Ignore refresh error if redirecting
+        }
       }
       // Full navigation so the server layout re-reads the new session cookie.
       router.replace(nextPath);
@@ -186,12 +201,12 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
   const otherHref = isLogin ? "/sign-up" : "/sign-in";
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col md:flex-row min-h-[580px]">
-        {/* Sliding promo panel (desktop) */}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 min-h-[580px]">
+        {/* Promo panel (desktop) */}
         <div
-          className={`absolute top-0 w-1/2 h-full bg-indigo-600 z-20 hidden md:flex flex-col items-center justify-center text-white p-10 text-center shadow-2xl transition-all duration-700 ease-in-out ${
-            isLogin ? "left-1/2 rounded-l-[80px]" : "left-0 rounded-r-[80px]"
+          className={`bg-indigo-600 hidden md:flex flex-col items-center justify-center text-white p-10 text-center relative overflow-hidden transition-all duration-700 ease-in-out ${
+            isLogin ? "order-2 rounded-l-[80px]" : "order-1 rounded-r-[80px]"
           }`}
         >
           <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto shadow-inner mb-5">
@@ -215,17 +230,17 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
         </div>
 
         {/* Form panel */}
-        <div className={`w-full md:w-1/2 flex items-center justify-center p-6 sm:p-10 ${isLogin ? "" : "md:order-2"}`}>
+        <div className={`w-full flex items-center justify-center p-6 sm:p-10 ${isLogin ? "order-1" : "order-1 md:order-2"}`}>
           <div className="w-full max-w-sm space-y-5">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black text-sm">R</div>
-                <span className="font-black text-slate-900 text-sm">ResuMate</span>
+                <span className="font-black text-slate-900 dark:text-slate-100 text-sm">ResuMate</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                 {isLogin ? "Sign In" : "Create Account"}
               </h1>
-              <p className="text-slate-500 text-xs mt-1">
+              <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
                 {isLogin ? "Use your student email to continue." : "Build your professional student identity."}
               </p>
             </div>
@@ -233,7 +248,7 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
             {error && (
               <div
                 role="alert"
-                className="p-3 bg-rose-50 text-rose-700 text-xs font-bold rounded-xl border border-rose-100 flex items-start gap-2"
+                className="p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-xs font-bold rounded-xl border border-rose-100 dark:border-rose-900/50 flex items-start gap-2"
               >
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {error}
               </div>
@@ -280,7 +295,7 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -301,13 +316,13 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
               {!isLogin && (
                 <div className="flex items-start gap-2 pt-1">
                   <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <p className="text-[9px] text-slate-500 leading-snug">
+                  <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-snug">
                     By signing up, you agree to our{" "}
-                    <Link href="/terms" className="font-bold underline hover:text-indigo-600">
+                    <Link href="/terms" className="font-bold underline hover:text-indigo-600 dark:hover:text-indigo-400">
                       Terms
                     </Link>{" "}
                     and{" "}
-                    <Link href="/privacy" className="font-bold underline hover:text-indigo-600">
+                    <Link href="/privacy" className="font-bold underline hover:text-indigo-600 dark:hover:text-indigo-400">
                       Privacy Policy
                     </Link>
                     .
@@ -319,7 +334,7 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
                 type="submit"
                 disabled={loading}
                 className={`w-full py-3.5 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60 ${
-                  isLogin ? "bg-slate-900 hover:bg-black text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                  isLogin ? "bg-slate-900 hover:bg-black dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"
                 }`}
               >
                 {loading ? (
@@ -337,10 +352,10 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
               <>
                 <div className="relative py-1">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-200" />
+                    <div className="w-full border-t border-slate-200 dark:border-slate-800" />
                   </div>
                   <div className="relative flex justify-center">
-                    <span className="bg-white px-2 text-[10px] text-slate-400 font-bold uppercase">Demo quick login</span>
+                    <span className="bg-white dark:bg-slate-900 px-2 text-[10px] text-slate-400 font-bold uppercase">Demo quick login</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -349,22 +364,22 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
                       key={u.email}
                       type="button"
                       onClick={() => fillDemoAccount(u.email)}
-                      className="py-2.5 px-3 border border-slate-200 rounded-xl text-left hover:bg-slate-50 hover:border-indigo-200 transition-colors"
+                      className="py-2.5 px-3 border border-slate-200 dark:border-slate-800 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors"
                     >
-                      <div className="text-[11px] font-black text-slate-800">{u.name}</div>
+                      <div className="text-[11px] font-black text-slate-800 dark:text-slate-200">{u.name}</div>
                       <div className="text-[10px] text-slate-400">{u.sub}</div>
                     </button>
                   ))}
                 </div>
                 <p className="text-center text-[10px] text-slate-400">
-                  Demo password: <code className="font-mono font-bold text-slate-500">{DEMO_PASSWORD}</code>
+                  Demo password: <code className="font-mono font-bold text-slate-500 dark:text-slate-300">{DEMO_PASSWORD}</code>
                 </p>
               </>
             )}
 
-            <p className="md:hidden text-center text-xs text-slate-500">
+            <p className="md:hidden text-center text-xs text-slate-500 dark:text-slate-400">
               {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <Link href={otherHref} className="text-indigo-600 font-bold underline">
+              <Link href={otherHref} className="text-indigo-600 dark:text-indigo-400 font-bold underline">
                 {isLogin ? "Sign Up" : "Sign In"}
               </Link>
             </p>
@@ -376,7 +391,7 @@ export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
 }
 
 const INPUT =
-  "w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all";
+  "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-900 outline-none transition-all";
 
 function Field({
   label,
@@ -389,7 +404,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">{label}</label>
+      <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1.5">{label}</label>
       <div className="relative">
         <Icon className="w-4 h-4 absolute left-3 top-3 text-slate-400 pointer-events-none" />
         {children}

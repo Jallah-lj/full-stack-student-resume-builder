@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,8 +29,32 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-slate-100 text-slate-900 antialiased">{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var saved = localStorage.getItem('resumate_theme');
+                  var isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                  if (saved === 'system') {
+                    isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  }
+                  if (isDark) {
+                    document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased transition-colors duration-200">
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

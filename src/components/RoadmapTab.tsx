@@ -186,16 +186,16 @@ export function RoadmapTab() {
           const total = m.items.length;
           const pct = Math.round((done / total) * 100);
           return (
-            <div key={m.phase} className={`bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 space-y-2 ${done === total ? `ring-2 ${c.ring}` : ""}`}>
+            <div key={m.phase} className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3 sm:p-4 space-y-2 ${done === total ? `ring-2 ${c.ring}` : ""}`}>
               <div className="flex justify-between items-center">
-                <span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">{m.phase}</span>
+                <span className="text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">{m.phase}</span>
                 {done === total && <Trophy className="w-3.5 h-3.5 text-amber-400" />}
               </div>
               <div className={`text-base sm:text-xl font-black ${c.text}`}>{pct}%</div>
-              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div className={`h-full ${c.bg} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
               </div>
-              <div className="text-[9px] text-slate-400 font-medium hidden sm:block">{done}/{total} done</div>
+              <div className="text-[9px] text-slate-400 dark:text-slate-500 font-medium hidden sm:block">{done}/{total} done</div>
             </div>
           );
         })}
@@ -232,11 +232,11 @@ export function RoadmapTab() {
           const isComplete = done === milestone.items.length;
 
           return (
-            <div key={milestone.phase} className={`bg-white rounded-2xl border shadow-xs overflow-hidden transition-all ${isComplete ? `border-current ${c.text} ring-1 ring-current/20` : "border-slate-200"}`}>
+            <div key={milestone.phase} className={`bg-white dark:bg-slate-900 rounded-2xl border shadow-xs overflow-hidden transition-all ${isComplete ? `border-current ${c.text} ring-1 ring-current/20` : "border-slate-200 dark:border-slate-800"}`}>
               {/* Phase Header */}
               <button
                 onClick={() => togglePhase(milestone.phase)}
-                className="w-full flex items-center gap-4 p-4 sm:p-5 hover:bg-slate-50 transition-colors text-left"
+                className="w-full flex items-center gap-4 p-4 sm:p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left"
               >
                 <div className={`w-10 h-10 shrink-0 rounded-xl ${c.bg} flex items-center justify-center text-white shadow-sm`}>
                   <milestone.icon className="w-5 h-5" />
@@ -244,15 +244,15 @@ export function RoadmapTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-[10px] font-black uppercase tracking-wider ${c.text}`}>{milestone.phase}</span>
-                    {isComplete && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-black">Complete 🎉</span>}
+                    {isComplete && <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-black">Complete 🎉</span>}
                   </div>
-                  <div className="font-black text-slate-900 text-sm sm:text-base">{milestone.title}</div>
-                  <div className="text-[11px] text-slate-500 hidden sm:block">{milestone.subtitle}</div>
+                  <div className="font-black text-slate-900 dark:text-white text-sm sm:text-base">{milestone.title}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">{milestone.subtitle}</div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
                     <div className={`font-black text-sm ${c.text}`}>{done}/{milestone.items.length}</div>
-                    <div className="text-[9px] text-slate-400 font-medium">done</div>
+                    <div className="text-[9px] text-slate-400 dark:text-slate-500 font-medium">done</div>
                   </div>
                   {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                 </div>
@@ -260,7 +260,7 @@ export function RoadmapTab() {
 
               {/* Items */}
               {isExpanded && (
-                <div className="border-t border-slate-100 divide-y divide-slate-50">
+                <div className="border-t border-slate-100 dark:border-slate-800 divide-y divide-slate-50 dark:divide-slate-800">
                   {milestone.items.map((item, idx) => {
                     const isDone = completed.includes(item.id);
                     const prevDone = idx === 0 || completed.includes(milestone.items[idx - 1].id);
@@ -270,20 +270,20 @@ export function RoadmapTab() {
                         key={item.id}
                         onClick={() => !locked && toggleItem(item.id)}
                         disabled={locked}
-                        className={`w-full flex items-start gap-3 p-4 transition-all text-left ${isDone ? `${c.light}` : locked ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50"}`}
+                        className={`w-full flex items-start gap-3 p-4 transition-all text-left ${isDone ? `${c.light} dark:bg-slate-800/40` : locked ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50 dark:hover:bg-slate-800/50"}`}
                       >
                         <div className="mt-0.5 shrink-0">
                           {isDone
                             ? <CheckCircle2 className={`w-5 h-5 ${c.text}`} />
                             : locked
-                            ? <Lock className="w-5 h-5 text-slate-300" />
-                            : <Circle className="w-5 h-5 text-slate-300" />}
+                            ? <Lock className="w-5 h-5 text-slate-300 dark:text-slate-600" />
+                            : <Circle className="w-5 h-5 text-slate-300 dark:text-slate-600" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-bold leading-tight ${isDone ? "line-through text-slate-400" : "text-slate-900"}`}>{item.label}</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{item.detail}</p>
+                          <p className={`text-xs font-bold leading-tight ${isDone ? "line-through text-slate-400 dark:text-slate-500" : "text-slate-900 dark:text-slate-100"}`}>{item.label}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{item.detail}</p>
                         </div>
-                        <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${isDone ? "bg-emerald-100 text-emerald-700" : `${c.badge}`}`}>
+                        <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${isDone ? "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300" : `${c.badge} dark:bg-slate-800 dark:text-slate-300`}`}>
                           +{item.points}pts
                         </span>
                       </button>

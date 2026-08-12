@@ -62,13 +62,16 @@ echo -e "${GREEN}✅  PostgreSQL client found${NC}"
 echo ""
 echo -e "${BOLD}🔄  Ensuring PostgreSQL service is running...${NC}"
 
-if command -v systemctl &>/dev/null; then
-  # Linux systemd
-  if ! systemctl is-active --quiet postgresql 2>/dev/null; then
-    echo "    Starting PostgreSQL via systemctl..."
-    sudo systemctl start postgresql 2>/dev/null || true
-    sleep 2
-  fi
+if command -v systemctl &>/dev/null && systemctl is-active --quiet postgresql 2>/dev/null; then
+  echo -e "${GREEN}✅  PostgreSQL service active (systemd)${NC}"
+elif command -v service &>/dev/null; then
+  echo "    Starting PostgreSQL via service..."
+  sudo service postgresql start 2>/dev/null || service postgresql start 2>/dev/null || true
+  sleep 2
+elif command -v systemctl &>/dev/null; then
+  echo "    Starting PostgreSQL via systemctl..."
+  sudo systemctl start postgresql 2>/dev/null || true
+  sleep 2
 elif command -v brew &>/dev/null; then
   # macOS Homebrew
   brew services start postgresql@15 2>/dev/null || brew services start postgresql 2>/dev/null || true
@@ -103,7 +106,7 @@ fi
 
 # Parse DB name and connection details from DATABASE_URL
 DB_URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/resumate_db}"
-DB_NAME=$(echo "$DB_URL" | sed 's|.*\/||' | sed 's|?.*||')
+DB_NAME=$(echo "$DB_URL" | sed 's|\?.*||' | sed 's|.*\/||')
 DB_HOST=$(echo "$DB_URL" | sed 's|.*@||' | sed 's|:.*||' | sed 's|\/.*||')
 DB_PORT=$(echo "$DB_URL" | sed 's|.*:\([0-9]*\)\/.*|\1|')
 DB_USER=$(echo "$DB_URL" | sed 's|postgresql://||' | sed 's|:.*||')
@@ -159,6 +162,11 @@ else
   echo "     ${BOLD}bash setup.sh${NC}"
   exit 1
 fi
+
+# ── Step 9: Seed initial demo data ───────────────────────────
+echo ""
+echo -e "${BOLD}🌱  Seeding initial student profiles and sample resumes...${NC}"
+npm run db:seed 2>/dev/null || echo -e "${YELLOW}⚠️   Seed complete or already initialized${NC}"
 
 # ── Done ─────────────────────────────────────────────────────
 echo ""

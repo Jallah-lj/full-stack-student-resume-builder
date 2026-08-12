@@ -83,10 +83,10 @@ export function AnalyticsTab() {
 
   if (resumes.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-        <BarChart3 className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-        <h3 className="font-bold text-slate-700">No resumes to analyze</h3>
-        <p className="text-xs text-slate-400 mt-1">Create and share a resume to start tracking visitor analytics.</p>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-12 text-center">
+        <BarChart3 className="w-12 h-12 text-slate-200 dark:text-slate-700 mx-auto mb-3" />
+        <h3 className="font-bold text-slate-700 dark:text-slate-300">No resumes to analyze</h3>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Create and share a resume to start tracking visitor analytics.</p>
       </div>
     );
   }
@@ -140,13 +140,13 @@ export function AnalyticsTab() {
       </div>
 
       {error && (
-        <div role="alert" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2">
+        <div role="alert" className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {error}
         </div>
       )}
 
       {selectedResume && !selectedResume.isPublic && (
-        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-start gap-2">
+        <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-start gap-2">
           <Lock className="w-4 h-4 shrink-0 mt-0.5" />
           This resume&apos;s public link is turned off, so it can&apos;t collect views. Enable it in the Resume Studio design tab.
         </div>
@@ -155,12 +155,12 @@ export function AnalyticsTab() {
       {/* Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+          <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
           <select
             value={selectedResumeId}
             onChange={(e) => setChosenResumeId(e.target.value)}
             aria-label="Select resume"
-            className="text-xs rounded-xl border border-slate-200 bg-white px-3 py-2 font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
           >
             {resumes.map((r) => (
               <option key={r.id} value={r.id}>
@@ -169,13 +169,13 @@ export function AnalyticsTab() {
             ))}
           </select>
         </div>
-        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-0.5">
+        <div className="flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 gap-0.5">
           {(["7d", "30d", "all"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                period === p ? "bg-indigo-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+                period === p ? "bg-indigo-600 text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
               {p === "7d" ? "7 days" : p === "30d" ? "30 days" : "All time"}
@@ -186,27 +186,27 @@ export function AnalyticsTab() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard icon={Eye} label="Total views" value={loading ? "—" : totalViews} color="bg-blue-50 text-blue-600" />
-        <StatCard icon={Users} label="Unique visitors" value={loading ? "—" : uniqueVisitors} color="bg-purple-50 text-purple-600" />
+        <StatCard icon={Eye} label="Total views" value={loading ? "—" : totalViews} color="bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400" />
+        <StatCard icon={Users} label="Unique visitors" value={loading ? "—" : uniqueVisitors} color="bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400" />
         <StatCard
           icon={Clock}
           label="Last viewed"
           value={loading ? "—" : lastViewed ? lastViewed.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "Never"}
-          color="bg-amber-50 text-amber-600"
+          color="bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400"
         />
         <StatCard
           icon={BarChart3}
           label="Repeat rate"
           value={loading || !totalViews ? "—" : `${Math.round(((totalViews - uniqueVisitors) / totalViews) * 100)}%`}
-          color="bg-emerald-50 text-emerald-600"
+          color="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
         />
       </div>
 
       {totalViews === 0 && !loading ? (
-        <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center">
-          <Eye className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-          <h3 className="font-bold text-slate-700">No views recorded yet</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-12 text-center">
+          <Eye className="w-12 h-12 text-slate-200 dark:text-slate-700 mx-auto mb-3" />
+          <h3 className="font-bold text-slate-700 dark:text-slate-300">No views recorded yet</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-sm mx-auto">
             Share your public resume link — every visit is tracked here automatically, with unique visitors, device type
             and traffic source.
           </p>
@@ -219,28 +219,28 @@ export function AnalyticsTab() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Daily views */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2 mb-6">
-              <BarChart3 className="w-4 h-4 text-indigo-600" /> Daily views
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 sm:p-6">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 mb-6">
+              <BarChart3 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Daily views
             </h3>
             <div className="flex items-end gap-1.5 h-32">
               {visibleSeries.map((d) => (
                 <div key={d.day} className="flex-1 flex flex-col items-center gap-1 group" title={`${d.day}: ${d.count} views`}>
-                  <span className="text-[9px] text-slate-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">{d.count}</span>
+                  <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">{d.count}</span>
                   <div
-                    className="w-full bg-indigo-600 rounded-t-lg transition-all duration-700 hover:bg-indigo-500"
+                    className="w-full bg-indigo-600 dark:bg-indigo-500 rounded-t-lg transition-all duration-700 hover:bg-indigo-500 dark:hover:bg-indigo-400"
                     style={{ height: `${Math.round((d.count / maxDay) * 100)}%`, minHeight: "3px" }}
                   />
-                  <span className="text-[8px] text-slate-400 font-medium">{d.day.slice(-2)}</span>
+                  <span className="text-[8px] text-slate-400 dark:text-slate-500 font-medium">{d.day.slice(-2)}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Devices */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2 mb-6">
-              <Monitor className="w-4 h-4 text-indigo-600" /> Device breakdown
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 sm:p-6">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 mb-6">
+              <Monitor className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Device breakdown
             </h3>
             <div className="space-y-5">
               {(data?.devices ?? []).map((d) => {
@@ -250,46 +250,46 @@ export function AnalyticsTab() {
                   <div key={d.device}>
                     <div className="flex justify-between items-center mb-1.5">
                       <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-slate-400" />
-                        <span className="text-xs font-bold text-slate-700 capitalize">{d.device}</span>
+                        <Icon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 capitalize">{d.device}</span>
                       </div>
-                      <span className="text-xs font-black text-indigo-600">{pct}%</span>
+                      <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{pct}%</span>
                     </div>
-                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full transition-all duration-1000" style={{ width: `${pct}%` }} />
+                    <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-500 dark:bg-indigo-400 rounded-full transition-all duration-1000" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
               })}
-              {(data?.devices ?? []).length === 0 && <p className="text-xs text-slate-400">No device data yet.</p>}
+              {(data?.devices ?? []).length === 0 && <p className="text-xs text-slate-400 dark:text-slate-500">No device data yet.</p>}
             </div>
           </div>
 
           {/* Countries */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2 mb-5">
-              <Globe className="w-4 h-4 text-indigo-600" /> Visitor locations
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 sm:p-6">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 mb-5">
+              <Globe className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Visitor locations
             </h3>
             <div className="space-y-3">
               {(data?.countries ?? []).map((loc, i) => {
                 const max = data?.countries[0]?.count || 1;
                 return (
                   <div key={loc.country ?? i} className="flex items-center gap-3">
-                    <span className="text-[10px] font-bold text-slate-400 w-3">{i + 1}</span>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 w-3">{i + 1}</span>
                     <div className="flex-1">
                       <div className="flex justify-between mb-1">
-                        <span className="text-xs font-bold text-slate-700">{loc.country}</span>
-                        <span className="text-xs font-black text-indigo-600">{loc.count} views</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{loc.country}</span>
+                        <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{loc.count} views</span>
                       </div>
-                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${Math.round((loc.count / max) * 100)}%` }} />
+                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-400 dark:bg-indigo-400 rounded-full" style={{ width: `${Math.round((loc.count / max) * 100)}%` }} />
                       </div>
                     </div>
                   </div>
                 );
               })}
               {(data?.countries ?? []).length === 0 && (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
                   Location data appears when your app runs behind a proxy that provides geo headers.
                 </p>
               )}
@@ -297,31 +297,31 @@ export function AnalyticsTab() {
           </div>
 
           {/* Traffic sources */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2 mb-5">
-              <Share2 className="w-4 h-4 text-indigo-600" /> Traffic sources
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-5 sm:p-6">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 mb-5">
+              <Share2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Traffic sources
             </h3>
             <div className="space-y-3">
               {(data?.referrers ?? []).map((r) => {
                 const pct = Math.round((r.count / referrerTotal) * 100);
                 return (
                   <div key={r.referrer} className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-sm shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm shrink-0">
                       {REFERRER_ICON[r.referrer] || "📊"}
                     </div>
                     <div className="flex-1">
                       <div className="flex justify-between mb-1">
-                        <span className="text-xs font-bold text-slate-700 capitalize">{r.referrer}</span>
-                        <span className="text-xs font-black text-indigo-600">{pct}%</span>
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 capitalize">{r.referrer}</span>
+                        <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{pct}%</span>
                       </div>
-                      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   </div>
                 );
               })}
-              {(data?.referrers ?? []).length === 0 && <p className="text-xs text-slate-400">No traffic yet.</p>}
+              {(data?.referrers ?? []).length === 0 && <p className="text-xs text-slate-400 dark:text-slate-500">No traffic yet.</p>}
             </div>
           </div>
         </div>
@@ -342,13 +342,13 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 space-y-3">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-4 space-y-3">
       <div className={`w-9 h-9 rounded-xl ${color} flex items-center justify-center`}>
         <Icon className="w-5 h-5" />
       </div>
       <div>
-        <div className="text-2xl font-black text-slate-900">{value}</div>
-        <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{label}</p>
+        <div className="text-2xl font-black text-slate-900 dark:text-white">{value}</div>
+        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5">{label}</p>
       </div>
     </div>
   );

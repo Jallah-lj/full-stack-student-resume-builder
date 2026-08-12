@@ -300,7 +300,7 @@ export function DashboardHomeTab() {
           href="/ats"
           onMouseEnter={() => setHovered("interviews")}
           onMouseLeave={() => setHovered(null)}
-          className="relative rounded-2xl overflow-hidden transition-all duration-300 bg-white block"
+          className="relative rounded-2xl overflow-hidden transition-all duration-300 bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800 block"
           style={{
             transform: hovered === "interviews" ? "translateY(-3px)" : "none",
             boxShadow: hovered === "interviews" ? "0 20px 40px rgba(244,63,94,0.2)" : "0 4px 20px rgba(0,0,0,0.06)",
@@ -309,26 +309,26 @@ export function DashboardHomeTab() {
           <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, #f43f5e, #ec4899, #a855f7)" }} />
           <div className="p-5 sm:p-6">
             <div className="flex justify-between items-start mb-6">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center">
                 <Star className="w-5 h-5 text-rose-500" />
               </div>
               <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: stats?.offers ? "#10b981" : "#f43f5e" }}>
                 {stats?.offers ? `${stats.offers} Offer 🎉` : "Keep going!"}
               </span>
             </div>
-            <div className="text-5xl sm:text-6xl font-black text-slate-900 leading-none">
-              {loading ? <div className="w-8 h-12 bg-slate-100 rounded-lg animate-pulse" /> : stats?.interviewing ?? 0}
+            <div className="text-5xl sm:text-6xl font-black text-slate-900 dark:text-white leading-none">
+              {loading ? <div className="w-8 h-12 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" /> : stats?.interviewing ?? 0}
             </div>
-            <p className="text-slate-500 text-xs font-semibold mt-2">Interviewing</p>
+            <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold mt-2">Interviewing</p>
           </div>
         </Link>
       </div>
 
       {/* ── QUICK ACTIONS ────────────────────────────── */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+      <div className="bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800 rounded-3xl p-5 sm:p-6" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
         <div className="flex justify-between items-center mb-5">
-          <h2 className="text-base font-black text-slate-900 tracking-tight">Jump Back In</h2>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quick Access</span>
+          <h2 className="text-base font-black text-slate-900 dark:text-white tracking-tight">Jump Back In</h2>
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Quick Access</span>
         </div>
         <div className="flex gap-2 sm:gap-3 overflow-x-auto no-scrollbar pb-1">
           {QUICK_ACTIONS.map(({ label, icon: Icon, href, bg, color, ring }) => (
@@ -348,10 +348,10 @@ export function DashboardHomeTab() {
       {/* ── MAIN ROW ─────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
         {/* Recent resumes */}
-        <div className="lg:col-span-5 bg-white rounded-3xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-          <div className="flex justify-between items-center px-6 py-4 border-b border-slate-50">
-            <h2 className="text-sm font-black text-slate-900">Recent Resumes</h2>
-            <Link href="/resumes" className="text-[11px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 uppercase tracking-wider">
+        <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800 rounded-3xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+          <div className="flex justify-between items-center px-6 py-4 border-b border-slate-50 dark:border-slate-800">
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">Recent Resumes</h2>
+            <Link href="/resumes" className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 flex items-center gap-0.5 uppercase tracking-wider">
               All <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -359,10 +359,10 @@ export function DashboardHomeTab() {
             <div className="p-5 space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex gap-3">
-                  <div className="w-12 h-12 bg-slate-50 rounded-2xl animate-pulse shrink-0" />
+                  <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl animate-pulse shrink-0" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3 bg-slate-50 rounded animate-pulse w-3/4" />
-                    <div className="h-2.5 bg-slate-50 rounded animate-pulse w-1/2" />
+                    <div className="h-3 bg-slate-50 dark:bg-slate-800 rounded animate-pulse w-3/4" />
+                    <div className="h-2.5 bg-slate-50 dark:bg-slate-800 rounded animate-pulse w-1/2" />
                   </div>
                 </div>
               ))}
@@ -373,7 +373,7 @@ export function DashboardHomeTab() {
                 <Link
                   key={r.id}
                   href={`/builder/${r.id}`}
-                  className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors text-left border-b border-slate-50 last:border-0 group"
+                  className="w-full flex items-center gap-4 px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors text-left border-b border-slate-50 dark:border-slate-800 last:border-0 group"
                 >
                   <div
                     className="w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center font-black text-base"
@@ -385,8 +385,8 @@ export function DashboardHomeTab() {
                     {String(i + 1).padStart(2, "0")}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-black text-slate-900 truncate group-hover:text-indigo-700 transition-colors">{r.title}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5 font-medium capitalize">
+                    <div className="text-xs font-black text-slate-900 dark:text-slate-100 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{r.title}</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium capitalize">
                       {r.template?.replace(/_/g, " ")} · {new Date(r.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </div>
                   </div>
@@ -401,12 +401,12 @@ export function DashboardHomeTab() {
             </div>
           ) : (
             <div className="py-14 px-6 text-center">
-              <div className="w-16 h-16 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-3">
-                <FileText className="w-8 h-8 text-indigo-300" />
+              <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/60 rounded-3xl flex items-center justify-center mx-auto mb-3">
+                <FileText className="w-8 h-8 text-indigo-300 dark:text-indigo-400" />
               </div>
-              <p className="text-sm font-bold text-slate-600 mb-1">No resumes yet</p>
-              <p className="text-xs text-slate-400 mb-4">Build your first tailored resume</p>
-              <Link href="/resumes" className="text-xs font-black text-indigo-600 hover:underline inline-flex items-center gap-1">
+              <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">No resumes yet</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">Build your first tailored resume</p>
+              <Link href="/resumes" className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1">
                 Create now <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -414,17 +414,17 @@ export function DashboardHomeTab() {
         </div>
 
         {/* Applications */}
-        <div className="lg:col-span-4 bg-white rounded-3xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-          <div className="flex justify-between items-center px-5 py-4 border-b border-slate-50">
-            <h2 className="text-sm font-black text-slate-900">Applications</h2>
-            <Link href="/ats" className="text-[11px] font-black text-indigo-600 uppercase tracking-wider flex items-center gap-0.5">
+        <div className="lg:col-span-4 bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800 rounded-3xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+          <div className="flex justify-between items-center px-5 py-4 border-b border-slate-50 dark:border-slate-800">
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">Applications</h2>
+            <Link href="/ats" className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-0.5">
               Track <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
           {loading ? (
             <div className="p-5 space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-14 bg-slate-50 rounded-2xl animate-pulse" />
+                <div key={i} className="h-14 bg-slate-50 dark:bg-slate-800 rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : stats?.recentApps.length ? (
@@ -432,12 +432,12 @@ export function DashboardHomeTab() {
               {stats.recentApps.map((app) => {
                 const s = STATUS_MAP[app.status] || STATUS_MAP.applied;
                 return (
-                  <div key={app.id} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors">
+                  <div key={app.id} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                     <div className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center font-black text-sm" style={{ background: `${s.color}22`, color: s.color }}>
                       {app.companyName?.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[11px] font-black text-slate-900 truncate">{app.companyName}</div>
+                      <div className="text-[11px] font-black text-slate-900 dark:text-slate-100 truncate">{app.companyName}</div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <div className="w-1.5 h-1.5 rounded-full" style={{ background: s.color }} />
                         <span className="text-[10px] font-bold" style={{ color: s.color }}>{s.label}</span>
@@ -450,11 +450,11 @@ export function DashboardHomeTab() {
             </div>
           ) : (
             <div className="py-14 px-5 text-center">
-              <div className="w-16 h-16 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-3">
-                <Target className="w-8 h-8 text-emerald-300" />
+              <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/60 rounded-3xl flex items-center justify-center mx-auto mb-3">
+                <Target className="w-8 h-8 text-emerald-300 dark:text-emerald-400" />
               </div>
-              <p className="text-sm font-bold text-slate-600 mb-1">No applications yet</p>
-              <Link href="/ats" className="text-xs font-black text-emerald-600 hover:underline inline-flex items-center gap-1 mt-3">
+              <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">No applications yet</p>
+              <Link href="/ats" className="text-xs font-black text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1 mt-3">
                 Run ATS scan <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -477,9 +477,9 @@ export function DashboardHomeTab() {
             </div>
           </div>
 
-          <div className="rounded-3xl p-5 bg-white" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+          <div className="rounded-3xl p-5 bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-black text-slate-900 uppercase tracking-wide">Profile</span>
+              <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wide">Profile</span>
               <span className="text-xs font-black" style={{ color: completionPct === 100 ? "#10b981" : "#7c3aed" }}>{completionPct}%</span>
             </div>
             <div className="flex gap-1 mb-4">
@@ -495,14 +495,14 @@ export function DashboardHomeTab() {
               {checklist.map(({ key, label, done }) => (
                 <div key={key} className="flex items-center gap-2">
                   <div
-                    className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${done ? "" : "border border-slate-200"}`}
+                    className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${done ? "" : "border border-slate-200 dark:border-slate-700"}`}
                     style={done ? { background: "linear-gradient(135deg, #7c3aed, #06b6d4)" } : {}}
                   >
                     {done && <CheckCircle2 className="w-4 h-4 text-white" />}
                   </div>
-                  <span className={`text-[10px] font-semibold flex-1 ${done ? "text-slate-400 line-through" : "text-slate-700"}`}>{label}</span>
+                  <span className={`text-[10px] font-semibold flex-1 ${done ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-700 dark:text-slate-300"}`}>{label}</span>
                   {!done && (
-                    <Link href={key === "firstResume" ? "/resumes" : "/profile"} className="text-[9px] font-black text-violet-600 hover:underline">
+                    <Link href={key === "firstResume" ? "/resumes" : "/profile"} className="text-[9px] font-black text-violet-600 dark:text-violet-400 hover:underline">
                       Add
                     </Link>
                   )}
@@ -512,15 +512,15 @@ export function DashboardHomeTab() {
           </div>
 
           {/* Public views — real data from the analytics table */}
-          <Link href="/analytics" className="rounded-3xl p-5 bg-white flex items-center gap-3 hover:bg-slate-50 transition-colors" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
-            <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
-              <Eye className="w-5 h-5 text-sky-600" />
+          <Link href="/analytics" className="rounded-3xl p-5 bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950/60 flex items-center justify-center shrink-0">
+              <Eye className="w-5 h-5 text-sky-600 dark:text-sky-400" />
             </div>
             <div className="min-w-0">
-              <div className="text-lg font-black text-slate-900 leading-none">{loading ? "—" : stats?.totalViews ?? 0}</div>
-              <p className="text-[10px] text-slate-500 font-semibold mt-1">Public resume views</p>
+              <div className="text-lg font-black text-slate-900 dark:text-white leading-none">{loading ? "—" : stats?.totalViews ?? 0}</div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-1">Public resume views</p>
             </div>
-            <ArrowUpRight className="w-4 h-4 text-slate-300 ml-auto shrink-0" />
+            <ArrowUpRight className="w-4 h-4 text-slate-300 dark:text-slate-600 ml-auto shrink-0" />
           </Link>
         </div>
       </div>

@@ -1,0 +1,1 @@
+/usr/lib/postgresql/18/bin/postgres "-D" "/home/tarpee/Downloads/full-stack-student-resume-builder/.postgres_data"

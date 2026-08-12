@@ -97,14 +97,14 @@ export function CoverLetterTab() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-indigo-600" /> Application context
+        <div className="lg:col-span-5 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Application context
           </h2>
 
           <form onSubmit={handleGenerate} className="space-y-4">
             <div>
-              <label htmlFor="cl-resume" className="block text-xs font-semibold text-slate-700 mb-1">Source resume</label>
+              <label htmlFor="cl-resume" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Source resume</label>
               <select id="cl-resume" value={selectedResumeId} onChange={(e) => setChosenResumeId(e.target.value)} className={INPUT}>
                 {resumes.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -115,7 +115,7 @@ export function CoverLetterTab() {
             </div>
 
             <div>
-              <label htmlFor="cl-company" className="block text-xs font-semibold text-slate-700 mb-1">Target company *</label>
+              <label htmlFor="cl-company" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Target company *</label>
               <input
                 id="cl-company"
                 type="text"
@@ -128,7 +128,7 @@ export function CoverLetterTab() {
             </div>
 
             <div>
-              <label htmlFor="cl-role" className="block text-xs font-semibold text-slate-700 mb-1">Target role title *</label>
+              <label htmlFor="cl-role" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Target role title *</label>
               <input
                 id="cl-role"
                 type="text"
@@ -141,14 +141,14 @@ export function CoverLetterTab() {
             </div>
 
             <div>
-              <label htmlFor="cl-jd" className="block text-xs font-semibold text-slate-700 mb-1">Job description snippet (optional)</label>
+              <label htmlFor="cl-jd" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Job description snippet (optional)</label>
               <textarea
                 id="cl-jd"
                 rows={4}
                 placeholder="Paste key responsibilities or requirements…"
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
-                className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full p-3 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
 
@@ -164,26 +164,26 @@ export function CoverLetterTab() {
         </div>
 
         <div className="lg:col-span-7 space-y-4">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs min-h-[500px] flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs min-h-[500px] flex flex-col justify-between">
             <div>
-              <div className="flex justify-between items-center border-b pb-3 mb-4 gap-2">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-indigo-600" /> Draft output
+              <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 gap-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Draft output
                 </h3>
 
                 {generatedLetter && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={downloadLetter}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                     >
-                      <Download className="w-3.5 h-3.5 text-slate-500" /> Download
+                      <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Download
                     </button>
                     <button
                       onClick={copyLetter}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
                     >
-                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />}
                       {copied ? "Copied!" : "Copy"}
                     </button>
                   </div>
@@ -196,17 +196,17 @@ export function CoverLetterTab() {
                   value={generatedLetter}
                   onChange={(e) => setGeneratedLetter(e.target.value)}
                   aria-label="Generated cover letter"
-                  className="w-full p-4 text-xs font-serif leading-relaxed text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full p-4 text-xs font-serif leading-relaxed text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               ) : (
-                <div className="text-center py-20 text-slate-400 space-y-3">
-                  <FileText className="w-12 h-12 text-slate-300 mx-auto" />
+                <div className="text-center py-20 text-slate-400 dark:text-slate-500 space-y-3">
+                  <FileText className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto" />
                   <p className="text-xs font-medium">Fill in the application context to generate your letter.</p>
                 </div>
               )}
             </div>
 
-            <p className="text-[11px] text-slate-400 border-t pt-3 mt-4">
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-3 mt-4">
               Tip: edit the generated text directly above before copying or downloading.
             </p>
           </div>
@@ -217,4 +217,4 @@ export function CoverLetterTab() {
 }
 
 const INPUT =
-  "w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none";
+  "w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none";

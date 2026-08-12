@@ -172,13 +172,13 @@ export function AtsOptimizerTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Input */}
-        <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <h2 className="text-sm font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
-            <Target className="w-4 h-4 text-indigo-600" /> Target Job Details
+        <div className="lg:col-span-6 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-2 flex items-center gap-2">
+            <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Target Job Details
           </h2>
 
           <div>
-            <label htmlFor="ats-resume" className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="ats-resume" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Select resume to analyze
             </label>
             <select id="ats-resume" value={activeResumeId} onChange={(e) => setChosenResumeId(e.target.value)} className={INPUT}>
@@ -192,26 +192,26 @@ export function AtsOptimizerTab() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="ats-company" className="block text-xs font-semibold text-slate-700 mb-1">Company name</label>
+              <label htmlFor="ats-company" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Company name</label>
               <input id="ats-company" type="text" placeholder="e.g. Stripe, Goldman Sachs" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={INPUT} />
             </div>
             <div>
-              <label htmlFor="ats-title" className="block text-xs font-semibold text-slate-700 mb-1">Job title / role</label>
+              <label htmlFor="ats-title" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Job title / role</label>
               <input id="ats-title" type="text" placeholder="e.g. SWE Intern 2026" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className={INPUT} />
             </div>
           </div>
 
           <div>
-            <label htmlFor="ats-jd" className="block text-xs font-semibold text-slate-700 mb-1">Paste job description</label>
+            <label htmlFor="ats-jd" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Paste job description</label>
             <textarea
               id="ats-jd"
               rows={8}
               placeholder="Paste the full job requirements here…"
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
-              className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none leading-relaxed"
+              className="w-full p-3 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none leading-relaxed"
             />
-            <p className="text-[10px] text-slate-400 mt-1">
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
               Optional — without it you still get a structure and impact score.
             </p>
           </div>
@@ -237,11 +237,11 @@ export function AtsOptimizerTab() {
         {/* Results */}
         <div className="lg:col-span-6 space-y-4">
           {results ? (
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
-              <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100 gap-3">
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
+              <div className="flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-950/60 rounded-xl border border-indigo-100 dark:border-indigo-900/60 gap-3">
                 <div>
-                  <span className="text-xs font-bold text-indigo-900">Calculated match index</span>
-                  <div className="text-3xl font-black text-indigo-950 mt-0.5">{results.atsScore}%</div>
+                  <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200">Calculated match index</span>
+                  <div className="text-3xl font-black text-indigo-950 dark:text-white mt-0.5">{results.atsScore}%</div>
                 </div>
                 <button
                   onClick={handleSaveMatch}
@@ -262,27 +262,27 @@ export function AtsOptimizerTab() {
               </div>
 
               <div>
-                <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Matched keywords ({results.matchedKeywords.length})
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Matched keywords ({results.matchedKeywords.length})
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {results.matchedKeywords.map((kw) => (
-                    <span key={kw} className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span key={kw} className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
                       ✓ {kw}
                     </span>
                   ))}
-                  {results.matchedKeywords.length === 0 && <p className="text-xs text-slate-400 italic">No exact matches found.</p>}
+                  {results.matchedKeywords.length === 0 && <p className="text-xs text-slate-400 dark:text-slate-500 italic">No exact matches found.</p>}
                 </div>
               </div>
 
               {results.missingKeywords.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-500" /> Missing key terms ({results.missingKeywords.length})
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
                     {results.missingKeywords.map((kw) => (
-                      <span key={kw} className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                      <span key={kw} className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60">
                         + {kw}
                       </span>
                     ))}
@@ -291,11 +291,11 @@ export function AtsOptimizerTab() {
               )}
 
               {results.matchedVerbs.length > 0 && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <h4 className="text-xs font-bold text-slate-800 mb-1">High-impact power verbs detected</h4>
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">High-impact power verbs detected</h4>
                   <div className="flex flex-wrap gap-1">
                     {results.matchedVerbs.map((v) => (
-                      <span key={v} className="px-2 py-0.5 text-[10px] font-mono bg-indigo-100 text-indigo-800 rounded font-bold">
+                      <span key={v} className="px-2 py-0.5 text-[10px] font-mono bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 rounded font-bold">
                         {v}
                       </span>
                     ))}
@@ -304,11 +304,11 @@ export function AtsOptimizerTab() {
               )}
 
               <div>
-                <h3 className="text-xs font-bold text-slate-900 mb-2">Tailoring recommendations</h3>
-                <ul className="space-y-1.5 text-xs text-slate-700">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-white mb-2">Tailoring recommendations</h3>
+                <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
                   {results.recommendations.map((rec, i) => (
-                    <li key={i} className="flex items-start gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
-                      <ArrowRight className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                    <li key={i} className="flex items-start gap-2 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700">
+                      <ArrowRight className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
                       <span>{rec}</span>
                     </li>
                   ))}
@@ -316,10 +316,10 @@ export function AtsOptimizerTab() {
               </div>
             </div>
           ) : (
-            <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
-              <Target className="w-12 h-12 text-indigo-300 mx-auto" />
-              <h3 className="text-base font-bold text-slate-800">Ready for diagnostic</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-3">
+              <Target className="w-12 h-12 text-indigo-300 dark:text-indigo-500 mx-auto" />
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">Ready for diagnostic</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
                 Select a resume and paste any target job description to reveal your ATS match score and keyword gaps.
               </p>
             </div>
@@ -327,32 +327,32 @@ export function AtsOptimizerTab() {
 
           {/* Tracker */}
           {savedApps.length > 0 && (
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Briefcase className="w-4 h-4 text-indigo-600" /> Application tracker ({savedApps.length})
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Briefcase className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Application tracker ({savedApps.length})
               </h3>
 
               <div className="space-y-2.5">
                 {savedApps.map((app) => (
-                  <div key={app.id} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <div key={app.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0">
-                        <div className="font-bold text-sm text-slate-900 truncate">{app.companyName}</div>
-                        <div className="text-xs text-slate-600 font-medium truncate">{app.jobTitle}</div>
-                        {app.resumeTitle && <div className="text-[10px] text-slate-400 mt-0.5 truncate">via {app.resumeTitle}</div>}
+                        <div className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{app.companyName}</div>
+                        <div className="text-xs text-slate-600 dark:text-slate-300 font-medium truncate">{app.jobTitle}</div>
+                        {app.resumeTitle && <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">via {app.resumeTitle}</div>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
+                        <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/60 px-2 py-0.5 rounded">
                           {app.matchScore}% match
                         </span>
-                        <button onClick={() => handleDeleteApp(app.id)} className="text-slate-400 hover:text-rose-600 p-1" title="Delete application">
+                        <button onClick={() => handleDeleteApp(app.id)} className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1" title="Delete application">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
-                      <span className="text-[10px] text-slate-400">Status</span>
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-700 text-xs">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Status</span>
                       <select
                         value={app.status}
                         onChange={(e) => handleUpdateStatus(app.id, e.target.value)}
@@ -377,20 +377,20 @@ export function AtsOptimizerTab() {
 }
 
 const INPUT =
-  "w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none";
+  "w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none";
 
 function Breakdown({ label, value, max }: { label: string; value: number; max: number }) {
   const pct = Math.round((value / max) * 100);
   return (
-    <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-center">
-      <div className="text-sm font-black text-slate-900">
+    <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center">
+      <div className="text-sm font-black text-slate-900 dark:text-white">
         {value}
-        <span className="text-[10px] text-slate-400 font-bold">/{max}</span>
+        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">/{max}</span>
       </div>
-      <div className="h-1 bg-slate-200 rounded-full mt-1 overflow-hidden">
+      <div className="h-1 bg-slate-200 dark:bg-slate-700 rounded-full mt-1 overflow-hidden">
         <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
       </div>
-      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide mt-1">{label}</div>
+      <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mt-1">{label}</div>
     </div>
   );
 }
@@ -403,12 +403,12 @@ export function EmptyResumes({
   body?: string;
 }) {
   return (
-    <div className="bg-white p-10 rounded-2xl border border-slate-200 text-center space-y-4">
-      <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto">
-        <FileText className="w-8 h-8 text-slate-400" />
+    <div className="bg-white dark:bg-slate-900 p-10 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4">
+      <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto">
+        <FileText className="w-8 h-8 text-slate-400 dark:text-slate-500" />
       </div>
-      <h2 className="text-base font-bold text-slate-800">{title}</h2>
-      <p className="text-xs text-slate-500 max-w-xs mx-auto">{body}</p>
+      <h2 className="text-base font-bold text-slate-800 dark:text-slate-200">{title}</h2>
+      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">{body}</p>
       <Link href="/resumes" className="inline-block px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors">
         Go to My Resumes
       </Link>
