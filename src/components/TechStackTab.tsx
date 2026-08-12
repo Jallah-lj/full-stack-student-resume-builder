@@ -66,7 +66,7 @@ export function TechStackTab() {
           </div>
           <h1 className="text-3xl font-black tracking-tight">Your Technical Blueprint</h1>
           <p className="text-slate-400 text-sm sm:text-base mt-2 max-w-2xl">
-            Map your technical expertise visually. We use this data to automatically rank your skills in the "Modern Tech" template and prioritize job matches.
+            Map your technical expertise visually. We use this data to automatically rank your skills in the &ldquo;Modern Tech&rdquo; template and prioritize job matches.
           </p>
         </div>
 

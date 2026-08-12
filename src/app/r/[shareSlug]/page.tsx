@@ -2,8 +2,13 @@ import { db } from "@/db";
 import { resumes, users, education, workExperiences, projects, extracurriculars, skills, certifications } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { recordResumeView } from "@/lib/track-view";
 import { ResumeTemplateDispatcher } from "@/components/resume-templates/ResumeTemplateDispatcher";
 import { PublicResumeHeader } from "@/components/PublicResumeHeader";
+
+// Every visit must hit the server so views are counted accurately.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ shareSlug: string }> }) {
   const { shareSlug } = await params;
@@ -34,6 +39,20 @@ export default async function PublicResumePage({ params }: { params: Promise<{ s
         <p className="text-slate-600 max-w-md">The owner of this resume has set its visibility to private.</p>
       </div>
     );
+  }
+
+  // Count this visit before rendering. Never let analytics break the page.
+  try {
+    const h = await headers();
+    await recordResumeView({
+      resumeId: resume.id,
+      userAgent: h.get("user-agent"),
+      referer: h.get("referer"),
+      ip: h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip"),
+      country: h.get("x-vercel-ip-country"),
+    });
+  } catch (err) {
+    console.error("Failed to record resume view:", err);
   }
 
   const ownerList = await db.select().from(users).where(eq(users.id, resume.userId)).limit(1);

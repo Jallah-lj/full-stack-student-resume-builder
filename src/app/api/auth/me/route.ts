@@ -1,43 +1,32 @@
-import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { getSessionUser, toPublicUser } from "@/lib/auth";
+import { route, ok } from "@/lib/api";
 import { seedDatabase } from "@/db/seed";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  try {
-    if (!process.env.DATABASE_URL) {
-      return NextResponse.json(
-        { error: "DATABASE_URL is not configured. Copy .env.example to .env and set your database connection string, then restart the server." },
-        { status: 503 }
-      );
-    }
+export const GET = route(async () => {
+  // Bootstrap demo data on a fresh database so first run is never empty.
+  await seedDatabase();
 
-    // Auto-seed on empty DB
-    const count = await db.select().from(users).limit(1);
-    if (count.length === 0) {
-      await seedDatabase();
-    }
+  const currentUser = await getSessionUser();
 
-    const { getSessionUser } = await import("@/lib/auth");
-    const currentUser = await getSessionUser();
+  if (!currentUser) {
+    return ok({ user: null, availableUsers: [] });
+  }
 
-    const allUsers = await db.select({
+  // Demo persona switcher list — public fields only, never credentials.
+  const availableUsers = await db
+    .select({
       id: users.id,
       name: users.name,
       email: users.email,
       headline: users.headline,
       profilePictureUrl: users.profilePictureUrl,
       university: users.university,
-    }).from(users);
+    })
+    .from(users);
 
-    return NextResponse.json({ user: currentUser, availableUsers: allUsers });
-  } catch (err: any) {
-    console.error("Auth /me error:", err?.message);
-    return NextResponse.json(
-      { error: err?.message || "Failed to fetch session user" },
-      { status: 500 }
-    );
-  }
-}
+  return ok({ user: toPublicUser(currentUser), availableUsers });
+});

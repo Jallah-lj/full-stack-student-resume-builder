@@ -1,50 +1,54 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { createSession, sessionCookieOptions, SESSION_COOKIE, toPublicUser } from "@/lib/auth";
+import { route, ok, fail, logActivity } from "@/lib/api";
+import { verifyPassword, isLegacyHash, hashPassword } from "@/lib/password";
+import { seedDatabase } from "@/db/seed";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
-  try {
-    if (!process.env.DATABASE_URL) {
-      return NextResponse.json({ error: "DATABASE_URL is not configured." }, { status: 503 });
-    }
+export const POST = route(async (req: NextRequest) => {
+  await seedDatabase();
 
-    const body = await req.json();
-    const { userId, email, password } = body;
+  const { email, password } = await req.json();
 
-    let targetUser = null;
-
-    if (userId) {
-      const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-      targetUser = result[0] || null;
-    } else if (email) {
-      const result = await db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1);
-      targetUser = result[0] || null;
-
-      // Verify password only when explicitly provided (skip for demo switcher)
-      if (targetUser && password && password !== "demo_password") {
-        if (targetUser.passwordHash !== password) {
-          return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
-        }
-      }
-    }
-
-    if (!targetUser) {
-      return NextResponse.json({ error: "No account found with that email. Please sign up first." }, { status: 404 });
-    }
-
-    const response = NextResponse.json({ success: true, user: targetUser });
-    response.cookies.set("resumate_user_id", targetUser.id, {
-      path: "/",
-      httpOnly: true,
-      maxAge: 60 * 60 * 24 * 30,
-      sameSite: "lax",
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Login error:", err?.message);
-    return NextResponse.json({ error: err?.message || "Login failed" }, { status: 500 });
+  if (!email || !password) {
+    return fail("Email and password are required.", 400);
   }
-}
+
+  const cleanEmail = String(email).trim().toLowerCase();
+  const found = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
+  const user = found[0];
+
+  // Same message for unknown email and wrong password so the endpoint
+  // can't be used to enumerate which students have accounts.
+  const invalid = () => fail("Invalid email or password.", 401);
+  if (!user) return invalid();
+
+  const valid = await verifyPassword(String(password), user.passwordHash);
+  if (!valid) return invalid();
+
+  // Transparently upgrade legacy plaintext credentials to scrypt on login.
+  if (isLegacyHash(user.passwordHash)) {
+    await db
+      .update(users)
+      .set({ passwordHash: await hashPassword(String(password)) })
+      .where(eq(users.id, user.id));
+  }
+
+  const { token } = await createSession(user.id, req.headers.get("user-agent"));
+
+  await logActivity({
+    userId: user.id,
+    type: "auth",
+    action: "Signed in",
+    target: user.email,
+    status: "success",
+  });
+
+  const res = ok({ success: true, user: toPublicUser(user) });
+  res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
+  return res;
+});

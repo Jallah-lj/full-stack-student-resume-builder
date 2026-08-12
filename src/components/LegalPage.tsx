@@ -1,20 +1,20 @@
-"use client";
-
 import React from "react";
+import Link from "next/link";
 import { Shield, Lock, FileText, ChevronLeft, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 
-export function LegalPage({ type, onBack }: { type: "terms" | "privacy"; onBack: () => void }) {
+export function LegalPage({ type }: { type: "terms" | "privacy" }) {
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans">
       <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
         {/* Header */}
         <div className="bg-slate-900 p-8 text-white relative overflow-hidden">
-          <button 
-            onClick={onBack}
-            className="absolute top-6 left-6 p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+          <Link
+            href="/sign-in"
+            aria-label="Back to sign in"
+            className="absolute top-6 left-6 p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors inline-flex"
           >
             <ChevronLeft className="w-5 h-5" />
-          </button>
+          </Link>
           
           <div className="mt-8 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-indigo-500 flex items-center justify-center shadow-lg">
@@ -90,7 +90,7 @@ export function LegalPage({ type, onBack }: { type: "terms" | "privacy"; onBack:
                   <Lock className="w-5 h-5 text-indigo-600" /> 2. Public Resume Links
                 </h2>
                 <p>
-                  When you enable "Public Sharing" for a resume, it becomes accessible via a unique URL. You can revoke this access at any time through your Dashboard settings.
+                  When you enable &ldquo;Public Sharing&rdquo; for a resume, it becomes accessible via a unique URL. You can revoke this access at any time through your Dashboard settings.
                 </p>
               </section>
 
@@ -118,12 +118,20 @@ export function LegalPage({ type, onBack }: { type: "terms" | "privacy"; onBack:
         {/* Footer */}
         <div className="p-8 border-t border-slate-100 flex justify-between items-center">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ResuMate Legal Hub</p>
-          <button 
-            onClick={onBack}
-            className="flex items-center gap-2 text-indigo-600 font-bold text-xs hover:gap-3 transition-all"
-          >
-            I Understand, Go Back <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-4">
+            <Link
+              href={type === "terms" ? "/privacy" : "/terms"}
+              className="text-slate-500 font-bold text-xs hover:text-slate-800 transition-colors"
+            >
+              {type === "terms" ? "Privacy Policy" : "Terms of Service"}
+            </Link>
+            <Link
+              href="/sign-in"
+              className="flex items-center gap-2 text-indigo-600 font-bold text-xs hover:gap-3 transition-all"
+            >
+              I Understand, Go Back <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </div>
     </div>

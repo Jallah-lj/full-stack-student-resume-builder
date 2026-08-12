@@ -132,13 +132,61 @@ export const jobApplications = pgTable("job_applications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// New Table for Resume Views Tracking
-export const resumeAnalytics = pgTable("resume_analytics", {
+
+/* ────────────────────────────────────────────────────────────
+   Sessions — real, revocable server-side auth sessions
+───────────────────────────────────────────────────────────── */
+export const sessions = pgTable("sessions", {
+  token: text("token").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+/* ────────────────────────────────────────────────────────────
+   Resume views — one row per public resume page hit.
+   Powers the Analytics page with real numbers.
+───────────────────────────────────────────────────────────── */
+export const resumeViews = pgTable("resume_views", {
   id: text("id").primaryKey(),
   resumeId: text("resume_id").notNull().references(() => resumes.id, { onDelete: "cascade" }),
-  viewCount: integer("view_count").default(0).notNull(),
-  uniqueVisitors: integer("unique_visitors").default(0).notNull(),
-  lastViewedAt: timestamp("last_viewed_at").defaultNow(),
-  // Store browser/device distribution as JSON
-  deviceData: text("device_data").default("{}").notNull(), 
+  visitorHash: text("visitor_hash").notNull(),
+  referrer: text("referrer").default("direct").notNull(),
+  device: text("device").default("desktop").notNull(),
+  country: text("country"),
+  viewedAt: timestamp("viewed_at").defaultNow().notNull(),
 });
+
+/* ────────────────────────────────────────────────────────────
+   Activity log — immutable audit trail shown on Activity page
+───────────────────────────────────────────────────────────── */
+export const activityLog = pgTable("activity_log", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  resumeId: text("resume_id"),
+  type: text("type").notNull(),        // ats | ai | export | edit | auth | application | resume
+  action: text("action").notNull(),    // human readable
+  target: text("target").default("").notNull(),
+  result: text("result").default("").notNull(),
+  status: text("status").default("info").notNull(), // success | info | warning
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/* ────────────────────────────────────────────────────────────
+   Career roadmap progress — persisted per user
+───────────────────────────────────────────────────────────── */
+export const roadmapProgress = pgTable("roadmap_progress", {
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  itemId: text("item_id").notNull(),
+  completedAt: timestamp("completed_at").defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.userId, t.itemId] })]);
+
+/* ────────────────────────────────────────────────────────────
+   Job bookmarks — persisted "saved jobs" on the Job Board
+───────────────────────────────────────────────────────────── */
+export const jobBookmarks = pgTable("job_bookmarks", {
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  jobId: text("job_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.userId, t.jobId] })]);

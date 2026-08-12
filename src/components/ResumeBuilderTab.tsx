@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   GraduationCap, Briefcase, FolderKanban, Award, Sparkles, Layers,
   Printer, Share2, Trash2, Plus, Wand2, Settings, Eye, Check,
-  ExternalLink, RefreshCw,
+  ExternalLink, RefreshCw, AlertTriangle, Download,
 } from "lucide-react";
 import { ResumeTemplateDispatcher } from "./resume-templates/ResumeTemplateDispatcher";
+import { useApp } from "@/components/providers/AppProvider";
+import { api, errorMessage } from "@/lib/client-api";
 
 const SUB_TABS = [
   { id: "settings",   label: "Design",    icon: Settings },
@@ -17,9 +19,11 @@ const SUB_TABS = [
   { id: "skills",     label: "Skills",    icon: Layers },
 ];
 
-export function ResumeBuilderTab({ resumeId, onRefresh }: { resumeId: string; onRefresh: () => void }) {
+export function ResumeBuilderTab({ resumeId }: { resumeId: string }) {
+  const { refreshResumes } = useApp();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [activeSubTab, setActiveSubTab] = useState("settings");
   const [copiedLink, setCopiedLink] = useState(false);
   const [savingStatus, setSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -28,21 +32,54 @@ export function ResumeBuilderTab({ resumeId, onRefresh }: { resumeId: string; on
   const [aiLoading, setAiLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  const fetchResumeData = async () => {
+  const fetchResumeData = useCallback(async () => {
+    if (!resumeId) return;
     try {
-      setLoading(true);
-      const res = await fetch(`/api/resumes/${resumeId}`);
-      if (!res.ok) throw new Error("Failed");
-      setData(await res.json());
-    } catch { /* ignore */ } finally { setLoading(false); }
-  };
+      const payload = await api.get<any>(`/api/resumes/${resumeId}`);
+      setData(payload);
+      setLoadError("");
+    } catch (err) {
+      setLoadError(errorMessage(err, "Couldn't load this resume."));
+    } finally {
+      setLoading(false);
+    }
+  }, [resumeId]);
 
-  useEffect(() => { if (resumeId) fetchResumeData(); }, [resumeId]);
+  useEffect(() => {
+    let cancelled = false;
 
-  if (loading || !data) return (
+    (async () => {
+      try {
+        const payload = await api.get<any>(`/api/resumes/${resumeId}`);
+        if (cancelled) return;
+        setData(payload);
+        setLoadError("");
+      } catch (err) {
+        if (!cancelled) setLoadError(errorMessage(err, "Couldn't load this resume."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeId]);
+
+  if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[300px] bg-white rounded-2xl border border-slate-200">
       <RefreshCw className="w-7 h-7 text-indigo-600 animate-spin mb-2" />
       <p className="text-xs text-slate-500">Loading Resume Studio...</p>
+    </div>
+  );
+
+  if (loadError || !data) return (
+    <div className="flex flex-col items-center justify-center min-h-[300px] bg-white rounded-2xl border border-slate-200 text-center p-8 gap-3">
+      <AlertTriangle className="w-8 h-8 text-rose-500" />
+      <p className="text-sm font-bold text-slate-800">{loadError || "Resume unavailable."}</p>
+      <button onClick={() => { setLoading(true); void fetchResumeData(); }} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">
+        Try again
+      </button>
     </div>
   );
 
@@ -52,10 +89,10 @@ export function ResumeBuilderTab({ resumeId, onRefresh }: { resumeId: string; on
     setSavingStatus("saving");
     setData((prev: any) => ({ ...prev, resume: { ...prev.resume, ...updates } }));
     try {
-      await fetch(`/api/resumes/${resumeId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      await api.put(`/api/resumes/${resumeId}`, updates);
       setSavingStatus("saved");
       setTimeout(() => setSavingStatus("idle"), 1500);
-      onRefresh();
+      await refreshResumes();
     } catch { setSavingStatus("idle"); }
   };
 
@@ -67,8 +104,8 @@ export function ResumeBuilderTab({ resumeId, onRefresh }: { resumeId: string; on
       extracurriculars:{ organization: "Campus Club", role: "Officer", date: "2024 - Present", bullets: ["Led events and members"] },
       skills:          { category: "New Skills", skillsList: "Tool 1, Tool 2, Tool 3" },
     };
-    await fetch(`/api/resumes/${resumeId}/sections`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sectionType: type, data: defaults[type] || {} }) });
-    fetchResumeData();
+    await api.post(`/api/resumes/${resumeId}/sections`, { sectionType: type, data: defaults[type] || {} });
+    await fetchResumeData();
   };
 
   const handleUpdateItem = async (type: string, itemId: string, updates: any) => {
@@ -79,15 +116,15 @@ export function ResumeBuilderTab({ resumeId, onRefresh }: { resumeId: string; on
       return listKey ? { ...prev, [listKey]: prev[listKey].map((i: any) => i.id === itemId ? { ...i, ...updates } : i) } : prev;
     });
     try {
-      await fetch(`/api/sections/${type}/${itemId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
+      await api.put(`/api/sections/${type}/${itemId}`, updates);
       setSavingStatus("saved");
       setTimeout(() => setSavingStatus("idle"), 1500);
     } catch { setSavingStatus("idle"); }
   };
 
   const handleDeleteItem = async (type: string, itemId: string) => {
-    await fetch(`/api/sections/${type}/${itemId}`, { method: "DELETE" });
-    fetchResumeData();
+    await api.del(`/api/sections/${type}/${itemId}`);
+    await fetchResumeData();
   };
 
   const parseBulletsArr = (b: string) => { try { return JSON.parse(b); } catch { return [b]; } };
@@ -95,9 +132,12 @@ export function ResumeBuilderTab({ resumeId, onRefresh }: { resumeId: string; on
   const triggerAi = async (text: string, id: string, idx: number) => {
     setEnhancingBullet({ id, index: idx }); setAiLoading(true);
     try {
-      const res = await fetch("/api/ai/enhance-bullet", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bulletText: text, domain: "tech" }) });
-      setAiSuggestions((await res.json()).suggestions || []);
-    } finally { setAiLoading(false); }
+      const res = await api.post<{ suggestions: string[] }>("/api/ai/enhance-bullet", {
+        bulletText: text,
+        domain: resume?.targetRole?.toLowerCase().includes("data") ? "data" : "tech",
+      });
+      setAiSuggestions(res.suggestions || []);
+    } catch { setAiSuggestions([]); } finally { setAiLoading(false); }
   };
 
   const copyLink = () => {
@@ -183,6 +223,10 @@ export function ResumeBuilderTab({ resumeId, onRefresh }: { resumeId: string; on
               {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5" />}
               <span className="hidden sm:inline">{copiedLink ? "Copied!" : "Share"}</span>
             </button>
+            <a href={`/api/resumes/${resumeId}/export`} download
+              className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 flex items-center gap-1.5">
+              <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Backup JSON</span>
+            </a>
             <button onClick={() => window.print()}
               className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5">
               <Printer className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Export PDF</span>

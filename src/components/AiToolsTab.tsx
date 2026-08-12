@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Sparkles, Wand2, Copy, Check, Search, BookOpen, Layers, Zap, RefreshCw } from "lucide-react";
+import { api, errorMessage } from "@/lib/client-api";
 
 const ACTION_VERB_CATEGORIES = [
   {
@@ -58,21 +59,21 @@ export function AiToolsTab() {
   const [copiedVerb, setCopiedVerb] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   const handleEnhance = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
     setLoading(true);
+    setError("");
     try {
-      const res = await fetch("/api/ai/enhance-bullet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bulletText: inputText, domain }),
+      const data = await api.post<{ original: string; suggestions: string[] }>("/api/ai/enhance-bullet", {
+        bulletText: inputText,
+        domain,
       });
-      const data = await res.json();
       setSuggestions(data);
     } catch (err) {
-      console.error(err);
+      setError(errorMessage(err, "Couldn't enhance that bullet."));
     } finally {
       setLoading(false);
     }

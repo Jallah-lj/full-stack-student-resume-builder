@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  CheckCircle2, Circle, Rocket, Calendar, Target, BookOpen,
-  Users2, Sparkles, ArrowRight, ClipboardList, Lock,
-  Trophy, Flame, Star, ChevronDown, ChevronUp,
+  CheckCircle2, Circle, Rocket, Target,
+  Users2, ArrowRight, Lock,
+  Trophy, Flame, ChevronDown, ChevronUp, AlertTriangle,
 } from "lucide-react";
+import { api, errorMessage } from "@/lib/client-api";
 
 const MILESTONES = [
   {
@@ -69,31 +70,57 @@ const COLOR_MAP: Record<string, { ring: string; bg: string; text: string; badge:
   amber:   { ring: "ring-amber-200",   bg: "bg-amber-500",   text: "text-amber-600",   badge: "bg-amber-100 text-amber-800",    light: "bg-amber-50",   dot: "bg-amber-500" },
 };
 
-const STORAGE_KEY = "resumate_roadmap_completed";
+const ALL_ITEMS = MILESTONES.flatMap((m) => m.items);
 
 export function RoadmapTab() {
   const [completed, setCompleted] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>(["Phase 1"]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
+  /** Progress lives in the database so it follows the student across devices. */
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setCompleted(JSON.parse(saved));
-    } catch { /* ignore */ }
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await api.get<{ completed: string[] }>("/api/roadmap");
+        if (!cancelled) setCompleted(data.completed || []);
+      } catch (err) {
+        if (!cancelled) setError(errorMessage(err, "Couldn't load your roadmap progress."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const toggleItem = (id: string) => {
-    setCompleted(prev => {
-      const updated = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
-      return updated;
-    });
+  const toggleItem = async (id: string) => {
+    const wasDone = completed.includes(id);
+    const optimistic = wasDone ? completed.filter((i) => i !== id) : [...completed, id];
+    const previous = completed;
+    setCompleted(optimistic);
+    setError("");
+    try {
+      const data = await api.post<{ completed: string[] }>("/api/roadmap", {
+        itemId: id,
+        completed: !wasDone,
+        label: ALL_ITEMS.find((i) => i.id === id)?.label,
+      });
+      setCompleted(data.completed || optimistic);
+    } catch (err) {
+      setCompleted(previous);
+      setError(errorMessage(err, "Couldn't save that milestone."));
+    }
   };
 
   const togglePhase = (phase: string) =>
     setExpanded(prev => prev.includes(phase) ? prev.filter(p => p !== phase) : [...prev, phase]);
 
-  const allItems = MILESTONES.flatMap(m => m.items);
+  const allItems = ALL_ITEMS;
   const totalPoints = allItems.reduce((s, i) => s + i.points, 0);
   const earnedPoints = allItems.filter(i => completed.includes(i.id)).reduce((s, i) => s + i.points, 0);
   const progress = Math.round((completed.length / allItems.length) * 100);
@@ -102,8 +129,28 @@ export function RoadmapTab() {
 
   const nextUnfinished = allItems.find(i => !completed.includes(i.id));
 
+  if (loading) {
+    return (
+      <div className="space-y-5">
+        <div className="h-48 rounded-3xl bg-slate-100 animate-pulse" />
+        <div className="grid grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-2xl bg-slate-100 animate-pulse" />
+          ))}
+        </div>
+        <div className="h-64 rounded-2xl bg-slate-100 animate-pulse" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
+      {error && (
+        <div role="alert" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
+
       {/* Hero */}
       <div className="bg-gradient-to-br from-slate-900 to-indigo-900 rounded-2xl sm:rounded-3xl p-6 sm:p-10 text-white shadow-xl relative overflow-hidden">
         <div className="absolute -top-12 -right-12 w-56 h-56 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
