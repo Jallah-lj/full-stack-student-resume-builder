@@ -173,6 +173,6 @@ echo "  ┌───────────────────────
 echo "  │  alex.chen@berkeley.edu   (CS @ Berkeley)    │"
 echo "  │  m.patel@jhu.edu          (Bio @ Hopkins)     │"
 echo "  │  mvance@stern.nyu.edu     (Finance @ Stern)   │"
-echo "  │  Password for all:  demo_password             │"
+echo "  │  Password for all:  demo1234                 │"
 echo "  └──────────────────────────────────────────────┘"
 echo "──────────────────────────────────────────────────────────"

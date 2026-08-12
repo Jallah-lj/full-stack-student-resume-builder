@@ -1,64 +1,99 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Sparkles, Target, CheckCircle2, AlertTriangle, Building2, Plus, ArrowRight, Zap, Check, Trash2, Edit2, Briefcase } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Sparkles, Target, CheckCircle2, AlertTriangle, Plus, ArrowRight,
+  Zap, Check, Trash2, Briefcase, FileText,
+} from "lucide-react";
+import { useApp } from "@/components/providers/AppProvider";
+import { api, errorMessage } from "@/lib/client-api";
 
-export function AtsOptimizerTab({
-  resumes,
-  selectedResumeId,
-}: {
-  resumes: any[];
-  selectedResumeId?: string;
-}) {
-  const [activeResumeId, setActiveResumeId] = useState(selectedResumeId || (resumes[0]?.id || ""));
+interface AtsResult {
+  atsScore: number;
+  breakdown: { actionVerbs: number; quantification: number; structure: number; keywords: number };
+  matchedVerbs: string[];
+  quantifiedMetricsCount: number;
+  matchedKeywords: string[];
+  missingKeywords: string[];
+  recommendations: string[];
+}
+
+interface JobApp {
+  id: string;
+  companyName: string;
+  jobTitle: string;
+  matchScore: number;
+  status: string;
+  resumeTitle: string | null;
+  createdAt: string;
+}
+
+const STATUS_CLASS: Record<string, string> = {
+  interviewing: "bg-amber-100 text-amber-900 border-amber-200",
+  offer: "bg-emerald-100 text-emerald-900 border-emerald-200",
+  rejected: "bg-rose-100 text-rose-800 border-rose-200",
+  applied: "bg-indigo-100 text-indigo-900 border-indigo-200",
+  draft: "bg-slate-100 text-slate-700 border-slate-200",
+};
+
+export function AtsOptimizerTab() {
+  const { resumes, refreshResumes } = useApp();
+
+  const [chosenResumeId, setChosenResumeId] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
-  const [results, setResults] = useState<any>(null);
-  const [savedApps, setSavedApps] = useState<any[]>([]);
+  const [results, setResults] = useState<AtsResult | null>(null);
+  const [savedApps, setSavedApps] = useState<JobApp[]>([]);
+  const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchSavedApplications();
+  // Derive the active resume so the first one is preselected without an effect.
+  const activeResumeId = chosenResumeId || resumes[0]?.id || "";
+
+  const fetchSavedApplications = useCallback(async () => {
+    const data = await api.get<{ jobApplications: JobApp[] }>("/api/job-applications");
+    setSavedApps(data.jobApplications || []);
   }, []);
 
-  const fetchSavedApplications = async () => {
-    try {
-      const res = await fetch("/api/job-applications");
-      if (res.ok) {
-        const data = await res.json();
-        setSavedApps(data.jobApplications || []);
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await api.get<{ jobApplications: JobApp[] }>("/api/job-applications");
+        if (!cancelled) setSavedApps(data.jobApplications || []);
+      } catch (err) {
+        if (!cancelled) setError(errorMessage(err, "Couldn't load your application tracker."));
       }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const runAtsAnalysis = async () => {
     if (!activeResumeId) return;
     setAnalyzing(true);
     setResults(null);
-
+    setError("");
     try {
-      // 1. Fetch full resume content
-      const fullRes = await fetch(`/api/resumes/${activeResumeId}`);
-      const resumeData = await fullRes.json();
-
-      // 2. Analyze
-      const analyzeRes = await fetch("/api/ats-analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          resumeData,
-          jobDescription,
-        }),
+      // The server loads the resume itself, so the score always reflects saved data.
+      const data = await api.post<AtsResult>("/api/ats-analyze", {
+        resumeId: activeResumeId,
+        jobDescription,
+        companyName,
+        jobTitle,
       });
-
-      const resData = await analyzeRes.json();
-      setResults(resData);
+      setResults(data);
+      // The scan persists a new score — keep the sidebar/cards in sync.
+      await refreshResumes();
     } catch (err) {
-      console.error(err);
+      setError(errorMessage(err, "ATS analysis failed."));
     } finally {
       setAnalyzing(false);
     }
@@ -66,97 +101,87 @@ export function AtsOptimizerTab({
 
   const handleSaveMatch = async () => {
     if (!results) return;
+    setSaving(true);
+    setError("");
     try {
-      const res = await fetch("/api/job-applications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          resumeId: activeResumeId,
-          companyName: companyName || "Target Company",
-          jobTitle: jobTitle || "Role Application",
-          jobDescription,
-          matchScore: results.atsScore,
-          missingKeywords: results.missingKeywords,
-          matchedKeywords: results.matchedKeywords,
-          status: "applied",
-        }),
+      await api.post("/api/job-applications", {
+        resumeId: activeResumeId,
+        companyName: companyName || "Target Company",
+        jobTitle: jobTitle || "Role Application",
+        jobDescription,
+        matchScore: results.atsScore,
+        missingKeywords: results.missingKeywords,
+        matchedKeywords: results.matchedKeywords,
+        status: "applied",
       });
-
-      if (res.ok) {
-        setSavedSuccess(true);
-        setTimeout(() => setSavedSuccess(false), 2500);
-        fetchSavedApplications();
-      }
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
+      await fetchSavedApplications();
     } catch (err) {
-      console.error(err);
+      setError(errorMessage(err, "Couldn't save this application."));
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleUpdateStatus = async (appId: string, newStatus: string) => {
+    // Optimistic update, rolled back on failure.
+    const prev = savedApps;
+    setSavedApps((apps) => apps.map((a) => (a.id === appId ? { ...a, status: newStatus } : a)));
     try {
-      await fetch(`/api/job-applications/${appId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      fetchSavedApplications();
+      await api.put(`/api/job-applications/${appId}`, { status: newStatus });
     } catch (err) {
-      console.error(err);
+      setSavedApps(prev);
+      setError(errorMessage(err, "Couldn't update the status."));
     }
   };
 
   const handleDeleteApp = async (appId: string) => {
-    if (confirm("Remove this target application from tracker?")) {
-      try {
-        await fetch(`/api/job-applications/${appId}`, { method: "DELETE" });
-        fetchSavedApplications();
-      } catch (err) {
-        console.error(err);
-      }
+    const prev = savedApps;
+    setSavedApps((apps) => apps.filter((a) => a.id !== appId));
+    try {
+      await api.del(`/api/job-applications/${appId}`);
+    } catch (err) {
+      setSavedApps(prev);
+      setError(errorMessage(err, "Couldn't remove the application."));
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case "interviewing":
-        return "bg-amber-100 text-amber-900 border-amber-200";
-      case "offer":
-        return "bg-emerald-100 text-emerald-900 border-emerald-200";
-      case "rejected":
-        return "bg-rose-100 text-rose-800 border-rose-200";
-      case "applied":
-      default:
-        return "bg-indigo-100 text-indigo-900 border-indigo-200";
-    }
-  };
+  if (resumes.length === 0) {
+    return <EmptyResumes />;
+  }
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-2xl shadow-md">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold border border-amber-400/20 mb-3">
-          <Zap className="w-3.5 h-3.5 text-amber-300" /> Real-Time ATS Match Diagnosis & Application Tracker
+          <Zap className="w-3.5 h-3.5 text-amber-300" /> Real-time ATS diagnosis &amp; application tracker
         </div>
         <h1 className="text-2xl font-extrabold">Tailor Resume to Target Job</h1>
         <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl">
-          Paste a target internship or job posting description to scan keyword alignment, action verb density, and score ATS compliance before submitting.
+          Paste a target internship or job description to scan keyword alignment, action-verb density and ATS
+          compliance before you submit.
         </p>
       </div>
 
+      {error && (
+        <div role="alert" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Form: Resume Selector & Job Description Input (6 cols) */}
+        {/* Input */}
         <div className="lg:col-span-6 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
           <h2 className="text-sm font-bold text-slate-900 border-b pb-2 flex items-center gap-2">
             <Target className="w-4 h-4 text-indigo-600" /> Target Job Details
           </h2>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Select Resume to Analyze</label>
-            <select
-              value={activeResumeId}
-              onChange={(e) => setActiveResumeId(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
+            <label htmlFor="ats-resume" className="block text-xs font-semibold text-slate-700 mb-1">
+              Select resume to analyze
+            </label>
+            <select id="ats-resume" value={activeResumeId} onChange={(e) => setChosenResumeId(e.target.value)} className={INPUT}>
               {resumes.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.title} ({r.targetRole || "General"})
@@ -167,123 +192,121 @@ export function AtsOptimizerTab({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Company Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Stripe, Goldman Sachs, NIH"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500"
-              />
+              <label htmlFor="ats-company" className="block text-xs font-semibold text-slate-700 mb-1">Company name</label>
+              <input id="ats-company" type="text" placeholder="e.g. Stripe, Goldman Sachs" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={INPUT} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Job Title / Role</label>
-              <input
-                type="text"
-                placeholder="e.g. SWE Intern 2026"
-                value={jobTitle}
-                onChange={(e) => setJobTitle(e.target.value)}
-                className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500"
-              />
+              <label htmlFor="ats-title" className="block text-xs font-semibold text-slate-700 mb-1">Job title / role</label>
+              <input id="ats-title" type="text" placeholder="e.g. SWE Intern 2026" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className={INPUT} />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Paste Job Description</label>
+            <label htmlFor="ats-jd" className="block text-xs font-semibold text-slate-700 mb-1">Paste job description</label>
             <textarea
+              id="ats-jd"
               rows={8}
-              placeholder="Paste the full job description requirements here..."
+              placeholder="Paste the full job requirements here…"
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
               className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none leading-relaxed"
             />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Optional — without it you still get a structure and impact score.
+            </p>
           </div>
 
           <button
             onClick={runAtsAnalysis}
-            disabled={analyzing}
-            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-2"
+            disabled={analyzing || !activeResumeId}
+            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-2"
           >
             {analyzing ? (
-              <span>Running ATS Keyword Diagnostic...</span>
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                Running ATS diagnostic…
+              </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4 text-indigo-200" /> Analyze ATS Keyword Match
+                <Sparkles className="w-4 h-4 text-indigo-200" /> Analyze ATS keyword match
               </>
             )}
           </button>
         </div>
 
-        {/* Right Results Breakdown (6 cols) */}
+        {/* Results */}
         <div className="lg:col-span-6 space-y-4">
           {results ? (
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
-              {/* Score Meter Header */}
-              <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+              <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-xl border border-indigo-100 gap-3">
                 <div>
-                  <span className="text-xs font-bold text-indigo-900">Calculated Match Index</span>
+                  <span className="text-xs font-bold text-indigo-900">Calculated match index</span>
                   <div className="text-3xl font-black text-indigo-950 mt-0.5">{results.atsScore}%</div>
                 </div>
-
-                <div className="text-right">
-                  <button
-                    onClick={handleSaveMatch}
-                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors"
-                  >
-                    {savedSuccess ? <Check className="w-4 h-4 text-emerald-300" /> : <Plus className="w-4 h-4" />}
-                    {savedSuccess ? "Saved to Tracker!" : "Save Application Match"}
-                  </button>
-                </div>
+                <button
+                  onClick={handleSaveMatch}
+                  disabled={saving}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                >
+                  {savedSuccess ? <Check className="w-4 h-4 text-emerald-300" /> : <Plus className="w-4 h-4" />}
+                  {savedSuccess ? "Saved to tracker!" : saving ? "Saving…" : "Save application match"}
+                </button>
               </div>
 
-              {/* Matched Keywords */}
+              {/* Score breakdown */}
+              <div className="grid grid-cols-4 gap-2">
+                <Breakdown label="Verbs" value={results.breakdown.actionVerbs} max={25} />
+                <Breakdown label="Metrics" value={results.breakdown.quantification} max={25} />
+                <Breakdown label="Structure" value={results.breakdown.structure} max={30} />
+                <Breakdown label="Keywords" value={results.breakdown.keywords} max={20} />
+              </div>
+
               <div>
                 <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Matched Job Keywords ({results.matchedKeywords?.length || 0})
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Matched keywords ({results.matchedKeywords.length})
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
-                  {results.matchedKeywords?.map((kw: string, i: number) => (
-                    <span key={i} className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  {results.matchedKeywords.map((kw) => (
+                    <span key={kw} className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
                       ✓ {kw}
                     </span>
                   ))}
-                  {results.matchedKeywords?.length === 0 && (
-                    <p className="text-xs text-slate-400 italic">No exact matches found.</p>
-                  )}
+                  {results.matchedKeywords.length === 0 && <p className="text-xs text-slate-400 italic">No exact matches found.</p>}
                 </div>
               </div>
 
-              {/* Missing Keywords */}
+              {results.missingKeywords.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" /> Missing key terms ({results.missingKeywords.length})
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {results.missingKeywords.map((kw) => (
+                      <span key={kw} className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                        + {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {results.matchedVerbs.length > 0 && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <h4 className="text-xs font-bold text-slate-800 mb-1">High-impact power verbs detected</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {results.matchedVerbs.map((v) => (
+                      <span key={v} className="px-2 py-0.5 text-[10px] font-mono bg-indigo-100 text-indigo-800 rounded font-bold">
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
-                <h3 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-500" /> Missing Key Terms ({results.missingKeywords?.length || 0})
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {results.missingKeywords?.map((kw: string, i: number) => (
-                    <span key={i} className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                      + {kw}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Action Verbs Found */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <h4 className="text-xs font-bold text-slate-800 mb-1">High-Impact Power Verbs Detected</h4>
-                <div className="flex flex-wrap gap-1">
-                  {results.matchedVerbs?.map((v: string, i: number) => (
-                    <span key={i} className="px-2 py-0.5 text-[10px] font-mono bg-indigo-100 text-indigo-800 rounded font-bold">
-                      {v}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Suggestions */}
-              <div>
-                <h3 className="text-xs font-bold text-slate-900 mb-2">Tailoring Recommendations</h3>
+                <h3 className="text-xs font-bold text-slate-900 mb-2">Tailoring recommendations</h3>
                 <ul className="space-y-1.5 text-xs text-slate-700">
-                  {results.recommendations?.map((rec: string, i: number) => (
+                  {results.recommendations.map((rec, i) => (
                     <li key={i} className="flex items-start gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
                       <ArrowRight className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                       <span>{rec}</span>
@@ -295,54 +318,50 @@ export function AtsOptimizerTab({
           ) : (
             <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
               <Target className="w-12 h-12 text-indigo-300 mx-auto" />
-              <h3 className="text-base font-bold text-slate-800">Ready for Diagnostic</h3>
+              <h3 className="text-base font-bold text-slate-800">Ready for diagnostic</h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Select a resume on the left and paste any target job description to reveal your ATS match score and keyword gap analysis.
+                Select a resume and paste any target job description to reveal your ATS match score and keyword gaps.
               </p>
             </div>
           )}
 
-          {/* Saved Applications Application Tracker Table */}
+          {/* Tracker */}
           {savedApps.length > 0 && (
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Briefcase className="w-4 h-4 text-indigo-600" /> Target Application Tracker ({savedApps.length})
-                </h3>
-              </div>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Briefcase className="w-4 h-4 text-indigo-600" /> Application tracker ({savedApps.length})
+              </h3>
 
               <div className="space-y-2.5">
                 {savedApps.map((app) => (
                   <div key={app.id} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                     <div className="flex justify-between items-start gap-2">
-                      <div>
-                        <div className="font-bold text-sm text-slate-900">{app.companyName}</div>
-                        <div className="text-xs text-slate-600 font-medium">{app.jobTitle}</div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-sm text-slate-900 truncate">{app.companyName}</div>
+                        <div className="text-xs text-slate-600 font-medium truncate">{app.jobTitle}</div>
+                        {app.resumeTitle && <div className="text-[10px] text-slate-400 mt-0.5 truncate">via {app.resumeTitle}</div>}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded">
-                          {app.matchScore}% Match
+                          {app.matchScore}% match
                         </span>
-                        <button
-                          onClick={() => handleDeleteApp(app.id)}
-                          className="text-slate-400 hover:text-rose-600 p-1"
-                          title="Delete application"
-                        >
+                        <button onClick={() => handleDeleteApp(app.id)} className="text-slate-400 hover:text-rose-600 p-1" title="Delete application">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
-                      <span className="text-[10px] text-slate-400">Status:</span>
+                      <span className="text-[10px] text-slate-400">Status</span>
                       <select
                         value={app.status}
                         onChange={(e) => handleUpdateStatus(app.id, e.target.value)}
-                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md border cursor-pointer focus:outline-none ${getStatusBadgeClass(app.status)}`}
+                        aria-label={`Status for ${app.companyName}`}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md border cursor-pointer focus:outline-none ${STATUS_CLASS[app.status] || STATUS_CLASS.applied}`}
                       >
                         <option value="applied">Applied</option>
                         <option value="interviewing">Interviewing</option>
-                        <option value="offer">Offer Received 🎉</option>
+                        <option value="offer">Offer received 🎉</option>
                         <option value="rejected">Rejected</option>
                       </select>
                     </div>
@@ -353,6 +372,46 @@ export function AtsOptimizerTab({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+const INPUT =
+  "w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none";
+
+function Breakdown({ label, value, max }: { label: string; value: number; max: number }) {
+  const pct = Math.round((value / max) * 100);
+  return (
+    <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-center">
+      <div className="text-sm font-black text-slate-900">
+        {value}
+        <span className="text-[10px] text-slate-400 font-bold">/{max}</span>
+      </div>
+      <div className="h-1 bg-slate-200 rounded-full mt-1 overflow-hidden">
+        <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wide mt-1">{label}</div>
+    </div>
+  );
+}
+
+export function EmptyResumes({
+  title = "You need a resume first",
+  body = "Create a resume and this tool will have something to work with.",
+}: {
+  title?: string;
+  body?: string;
+}) {
+  return (
+    <div className="bg-white p-10 rounded-2xl border border-slate-200 text-center space-y-4">
+      <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto">
+        <FileText className="w-8 h-8 text-slate-400" />
+      </div>
+      <h2 className="text-base font-bold text-slate-800">{title}</h2>
+      <p className="text-xs text-slate-500 max-w-xs mx-auto">{body}</p>
+      <Link href="/resumes" className="inline-block px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors">
+        Go to My Resumes
+      </Link>
     </div>
   );
 }

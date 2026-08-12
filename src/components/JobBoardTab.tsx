@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
-  Briefcase, MapPin, Search, Building2, Filter, ArrowRight,
-  Bookmark, BookmarkCheck, Zap, Clock, ExternalLink, X,
-  DollarSign, Globe, ChevronDown, SlidersHorizontal, Star,
-  Sparkles, CheckCircle2,
+  Briefcase, MapPin, Search, Building2, ArrowRight,
+  Bookmark, BookmarkCheck, Zap, Clock, X,
+  DollarSign, SlidersHorizontal, Star,
+  Sparkles, CheckCircle2, AlertTriangle, Check,
 } from "lucide-react";
+import { useApp } from "@/components/providers/AppProvider";
+import { api, errorMessage } from "@/lib/client-api";
 
 const ALL_JOBS = [
   { id: "job-1",  company: "Stripe",          logo: "https://logo.clearbit.com/stripe.com",          title: "Software Engineering Intern – Summer 2026",    location: "San Francisco, CA",   remote: "Hybrid",  salary: "$9,000/mo",  tags: ["React", "Go", "Infrastructure", "TypeScript"],    category: "Engineering", match: 94, postedAt: "2d ago",  description: "Build internal infrastructure and developer tools used by millions of businesses worldwide. Stripe offers mentorship, real ownership, and impact from day one." },
@@ -26,14 +28,50 @@ const ALL_JOBS = [
 const CATEGORIES = ["All", "Engineering", "Finance", "AI / ML", "Design", "Consulting", "Research"];
 const REMOTE_OPTIONS = ["All", "Remote", "Hybrid", "On-site"];
 
+type Job = (typeof ALL_JOBS)[number];
+
 export function JobBoardTab() {
+  const { resumes } = useApp();
+
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedRemote, setSelectedRemote] = useState("All");
   const [bookmarks, setBookmarks] = useState<string[]>([]);
-  const [selectedJob, setSelectedJob] = useState<typeof ALL_JOBS[0] | null>(null);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState<"match" | "recent">("match");
+  const [onlySaved, setOnlySaved] = useState(false);
+  const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
+  const [applying, setApplying] = useState(false);
+  const [error, setError] = useState("");
+
+  /** Saved jobs and existing applications both live in the database. */
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [saved, apps] = await Promise.all([
+          api.get<{ bookmarks: string[] }>("/api/job-bookmarks"),
+          api.get<{ jobApplications: { jobTitle: string; companyName: string }[] }>("/api/job-applications"),
+        ]);
+        if (cancelled) return;
+        setBookmarks(saved.bookmarks || []);
+        // Match tracker rows back to board listings by company + title.
+        setAppliedJobIds(
+          ALL_JOBS.filter((j) =>
+            (apps.jobApplications || []).some((a) => a.companyName === j.company && a.jobTitle === j.title)
+          ).map((j) => j.id)
+        );
+      } catch (err) {
+        if (!cancelled) setError(errorMessage(err, "Couldn't load your saved jobs."));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     let jobs = ALL_JOBS;
@@ -48,12 +86,47 @@ export function JobBoardTab() {
     }
     if (selectedCategory !== "All") jobs = jobs.filter(j => j.category === selectedCategory);
     if (selectedRemote !== "All") jobs = jobs.filter(j => j.remote === selectedRemote);
+    if (onlySaved) jobs = jobs.filter(j => bookmarks.includes(j.id));
     if (sortBy === "match") jobs = [...jobs].sort((a, b) => b.match - a.match);
     return jobs;
-  }, [search, selectedCategory, selectedRemote, sortBy]);
+  }, [search, selectedCategory, selectedRemote, sortBy, onlySaved, bookmarks]);
 
-  const toggleBookmark = (id: string) =>
-    setBookmarks(prev => prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]);
+  /** Persist the bookmark, rolling back the optimistic toggle if the write fails. */
+  const toggleBookmark = async (id: string) => {
+    const wasSaved = bookmarks.includes(id);
+    const previous = bookmarks;
+    setBookmarks(wasSaved ? bookmarks.filter((b) => b !== id) : [...bookmarks, id]);
+    setError("");
+    try {
+      const data = await api.post<{ bookmarks: string[] }>("/api/job-bookmarks", { jobId: id, saved: !wasSaved });
+      setBookmarks(data.bookmarks || []);
+    } catch (err) {
+      setBookmarks(previous);
+      setError(errorMessage(err, "Couldn't save that job."));
+    }
+  };
+
+  /** Apply → create a real row in the application tracker. */
+  const applyToJob = async (job: Job) => {
+    setApplying(true);
+    setError("");
+    try {
+      await api.post("/api/job-applications", {
+        resumeId: resumes[0]?.id,
+        companyName: job.company,
+        jobTitle: job.title,
+        jobDescription: job.description,
+        matchScore: job.match,
+        matchedKeywords: job.tags,
+        status: "applied",
+      });
+      setAppliedJobIds((prev) => [...new Set([...prev, job.id])]);
+    } catch (err) {
+      setError(errorMessage(err, "Couldn't add this role to your tracker."));
+    } finally {
+      setApplying(false);
+    }
+  };
 
   const remoteColor: Record<string, string> = {
     Remote: "bg-emerald-50 text-emerald-700 border-emerald-100",
@@ -88,6 +161,12 @@ export function JobBoardTab() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div role="alert" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
 
       {/* Search + Filters */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
@@ -170,8 +249,13 @@ export function JobBoardTab() {
           Showing <span className="text-slate-900">{filtered.length}</span> of {ALL_JOBS.length} roles
         </p>
         {bookmarks.length > 0 && (
-          <button onClick={() => setSelectedCategory("All")} className="text-xs font-bold text-indigo-600 flex items-center gap-1">
-            <Bookmark className="w-3.5 h-3.5" /> {bookmarks.length} saved
+          <button
+            onClick={() => setOnlySaved((v) => !v)}
+            className={`text-xs font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-colors ${
+              onlySaved ? "bg-indigo-600 text-white border-indigo-600" : "text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+            }`}
+          >
+            <Bookmark className="w-3.5 h-3.5" /> {onlySaved ? "Showing saved" : `${bookmarks.length} saved`}
           </button>
         )}
       </div>
@@ -197,6 +281,8 @@ export function JobBoardTab() {
                 <div className="p-4 sm:p-5">
                   <div className="flex items-start gap-3 sm:gap-4">
                     <div className="w-12 h-12 shrink-0 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden">
+                      {/* Third-party logo host; next/image would require allowlisting every domain. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={job.logo} alt={job.company} className="w-10 h-10 object-contain"
                         onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     </div>
@@ -260,6 +346,7 @@ export function JobBoardTab() {
               <div className="p-5 border-b border-slate-100">
                 <div className="flex items-start gap-4">
                   <div className="w-14 h-14 shrink-0 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-center overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={selectedJob.logo} alt="" className="w-12 h-12 object-contain"
                       onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                   </div>
@@ -328,9 +415,19 @@ export function JobBoardTab() {
                     {bookmarks.includes(selectedJob.id) ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
                     {bookmarks.includes(selectedJob.id) ? "Saved" : "Save"}
                   </button>
-                  <button className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5">
-                    Apply Now <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
+                  {appliedJobIds.includes(selectedJob.id) ? (
+                    <span className="flex-1 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5">
+                      <Check className="w-3.5 h-3.5" /> In your tracker
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => applyToJob(selectedJob)}
+                      disabled={applying}
+                      className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5"
+                    >
+                      {applying ? "Adding…" : "Apply & track"} <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,111 +1,113 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { resumes, education, workExperiences, projects, extracurriculars, skills, certifications, users } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
+import { route, ok, requireUser, requireOwnedResume, logActivity } from "@/lib/api";
+import { toPublicUser } from "@/lib/auth";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id: resumeId } = await params;
+export const dynamic = "force-dynamic";
 
-    const resumeList = await db.select().from(resumes).where(eq(resumes.id, resumeId)).limit(1);
-    if (resumeList.length === 0) {
-      return NextResponse.json({ error: "Resume not found" }, { status: 404 });
-    }
-    const resume = resumeList[0];
+type Ctx = { params: Promise<{ id: string }> };
 
-    // Fetch user details
-    const ownerList = await db.select().from(users).where(eq(users.id, resume.userId)).limit(1);
-    const owner = ownerList[0] || null;
+/** Load a resume plus every section, ordered for rendering. */
+export async function loadResumeBundle(resumeId: string) {
+  const [eduList, workList, projList, extraList, skillList, certList] = await Promise.all([
+    db.select().from(education).where(eq(education.resumeId, resumeId)).orderBy(asc(education.sortOrder)),
+    db.select().from(workExperiences).where(eq(workExperiences.resumeId, resumeId)).orderBy(asc(workExperiences.sortOrder)),
+    db.select().from(projects).where(eq(projects.resumeId, resumeId)).orderBy(asc(projects.sortOrder)),
+    db.select().from(extracurriculars).where(eq(extracurriculars.resumeId, resumeId)).orderBy(asc(extracurriculars.sortOrder)),
+    db.select().from(skills).where(eq(skills.resumeId, resumeId)).orderBy(asc(skills.sortOrder)),
+    db.select().from(certifications).where(eq(certifications.resumeId, resumeId)).orderBy(asc(certifications.sortOrder)),
+  ]);
 
-    // Fetch sections ordered by sortOrder
-    const eduList = await db.select().from(education).where(eq(education.resumeId, resumeId)).orderBy(asc(education.sortOrder));
-    const workList = await db.select().from(workExperiences).where(eq(workExperiences.resumeId, resumeId)).orderBy(asc(workExperiences.sortOrder));
-    const projList = await db.select().from(projects).where(eq(projects.resumeId, resumeId)).orderBy(asc(projects.sortOrder));
-    const extraList = await db.select().from(extracurriculars).where(eq(extracurriculars.resumeId, resumeId)).orderBy(asc(extracurriculars.sortOrder));
-    const skillList = await db.select().from(skills).where(eq(skills.resumeId, resumeId)).orderBy(asc(skills.sortOrder));
-    const certList = await db.select().from(certifications).where(eq(certifications.resumeId, resumeId)).orderBy(asc(certifications.sortOrder));
+  return {
+    education: eduList,
+    workExperiences: workList,
+    projects: projList,
+    extracurriculars: extraList,
+    skills: skillList,
+    certifications: certList,
+  };
+}
 
-    return NextResponse.json({
-      resume,
-      user: owner,
-      education: eduList,
-      workExperiences: workList,
-      projects: projList,
-      extracurriculars: extraList,
-      skills: skillList,
-      certifications: certList,
+/** GET /api/resumes/:id — owner only. */
+export const GET = route(async (_req: NextRequest, { params }: Ctx) => {
+  const user = await requireUser();
+  const { id: resumeId } = await params;
+
+  const resume = await requireOwnedResume(resumeId, user.id);
+
+  const ownerRows = await db.select().from(users).where(eq(users.id, resume.userId)).limit(1);
+  const sections = await loadResumeBundle(resumeId);
+
+  return ok({
+    resume,
+    user: ownerRows[0] ? toPublicUser(ownerRows[0]) : null,
+    ...sections,
+  });
+});
+
+/** PUT /api/resumes/:id — update design + metadata. */
+export const PUT = route(async (req: NextRequest, { params }: Ctx) => {
+  const user = await requireUser();
+  const { id: resumeId } = await params;
+  await requireOwnedResume(resumeId, user.id);
+
+  const body = await req.json();
+  const {
+    title, targetRole, template, colorTheme, fontSize, fontFamily,
+    showGpa, showCoursework, showProjectsFirst, isPublic, atsScore,
+  } = body;
+
+  const [updated] = await db
+    .update(resumes)
+    .set({
+      ...(title !== undefined && { title: String(title) }),
+      ...(targetRole !== undefined && { targetRole }),
+      ...(template !== undefined && { template }),
+      ...(colorTheme !== undefined && { colorTheme }),
+      ...(fontSize !== undefined && { fontSize }),
+      ...(fontFamily !== undefined && { fontFamily }),
+      ...(showGpa !== undefined && { showGpa: Boolean(showGpa) }),
+      ...(showCoursework !== undefined && { showCoursework: Boolean(showCoursework) }),
+      ...(showProjectsFirst !== undefined && { showProjectsFirst: Boolean(showProjectsFirst) }),
+      ...(isPublic !== undefined && { isPublic: Boolean(isPublic) }),
+      ...(atsScore !== undefined && { atsScore: Number(atsScore) }),
+      updatedAt: new Date(),
+    })
+    .where(eq(resumes.id, resumeId))
+    .returning();
+
+  // Visibility changes are security-relevant, so record them.
+  if (isPublic !== undefined) {
+    await logActivity({
+      userId: user.id,
+      resumeId,
+      type: "edit",
+      action: isPublic ? "Public link enabled" : "Public link disabled",
+      target: updated.title,
+      status: isPublic ? "success" : "warning",
     });
-  } catch (error) {
-    console.error("Fetch detailed resume error:", error);
-    return NextResponse.json({ error: "Failed to fetch resume details" }, { status: 500 });
   }
-}
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  return ok({ success: true, resume: updated });
+});
 
-    const { id: resumeId } = await params;
-    const body = await req.json();
+/** DELETE /api/resumes/:id — owner only; sections cascade. */
+export const DELETE = route(async (_req: NextRequest, { params }: Ctx) => {
+  const user = await requireUser();
+  const { id: resumeId } = await params;
+  const resume = await requireOwnedResume(resumeId, user.id);
 
-    const {
-      title,
-      targetRole,
-      template,
-      colorTheme,
-      fontSize,
-      fontFamily,
-      showGpa,
-      showCoursework,
-      showProjectsFirst,
-      isPublic,
-      atsScore,
-    } = body;
+  await db.delete(resumes).where(eq(resumes.id, resumeId));
 
-    const [updated] = await db
-      .update(resumes)
-      .set({
-        ...(title !== undefined && { title }),
-        ...(targetRole !== undefined && { targetRole }),
-        ...(template !== undefined && { template }),
-        ...(colorTheme !== undefined && { colorTheme }),
-        ...(fontSize !== undefined && { fontSize }),
-        ...(fontFamily !== undefined && { fontFamily }),
-        ...(showGpa !== undefined && { showGpa }),
-        ...(showCoursework !== undefined && { showCoursework }),
-        ...(showProjectsFirst !== undefined && { showProjectsFirst }),
-        ...(isPublic !== undefined && { isPublic }),
-        ...(atsScore !== undefined && { atsScore }),
-        updatedAt: new Date(),
-      })
-      .where(eq(resumes.id, resumeId))
-      .returning();
+  await logActivity({
+    userId: user.id,
+    type: "resume",
+    action: "Resume deleted",
+    target: resume.title,
+    status: "warning",
+  });
 
-    return NextResponse.json({ success: true, resume: updated });
-  } catch (error) {
-    console.error("Update resume error:", error);
-    return NextResponse.json({ error: "Failed to update resume" }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id: resumeId } = await params;
-
-    await db.delete(resumes).where(eq(resumes.id, resumeId));
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Delete resume error:", error);
-    return NextResponse.json({ error: "Failed to delete resume" }, { status: 500 });
-  }
-}
+  return ok({ success: true });
+});

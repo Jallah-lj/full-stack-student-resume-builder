@@ -1,5 +1,10 @@
-import { DashboardLayout } from "@/components/DashboardLayout";
+import { redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/auth";
 
-export default function Home() {
-  return <DashboardLayout />;
+export const dynamic = "force-dynamic";
+
+/** Root entry point — straight to the dashboard, or the sign-in screen. */
+export default async function Home() {
+  const user = await getSessionUser();
+  redirect(user ? "/dashboard" : "/sign-in");
 }

@@ -1,110 +1,89 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sparkles, Mail, Lock, User, GraduationCap, ArrowRight, ShieldCheck, AlertTriangle, Database, Terminal } from "lucide-react";
-import { LegalPage } from "./LegalPage";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Sparkles, Mail, Lock, User, GraduationCap, ArrowRight,
+  ShieldCheck, AlertTriangle, Database, Terminal, Eye, EyeOff,
+} from "lucide-react";
+import { api, errorMessage } from "@/lib/client-api";
 
-export default function AuthPage({ onAuthSuccess }: { onAuthSuccess: () => void }) {
-  const [isLogin, setIsLogin] = useState(true);
+const DEMO_PASSWORD = "demo1234";
+
+const DEMO_ACCOUNTS = [
+  { name: "Alex Chen", sub: "CS @ Berkeley", email: "alex.chen@berkeley.edu" },
+  { name: "Maya Patel", sub: "Bio @ Hopkins", email: "m.patel@jhu.edu" },
+];
+
+export default function AuthPage({ mode }: { mode: "sign-in" | "sign-up" }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isLogin = mode === "sign-in";
+
+  // Where to land after auth — set by the middleware when it intercepts.
+  const nextPath = searchParams.get("next") || "/dashboard";
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showLegal, setShowLegal] = useState<"terms" | "privacy" | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
   const [checkingDb, setCheckingDb] = useState(true);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    headline: "",
-    password: "",
-  });
+  const [formData, setFormData] = useState({ name: "", email: "", headline: "", password: "" });
 
-  // Check DB connectivity on mount so we can show a helpful error
+  // Surface database/setup problems up front rather than as a failed login.
   useEffect(() => {
-    const checkHealth = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        const res = await fetch("/api/health");
-        // If we get HTML back (not JSON), the server itself is broken
-        const contentType = res.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-          setDbError("The API server returned an unexpected response. Make sure the Next.js server is running (npm run dev).");
-          return;
-        }
-        const data = await res.json();
-        if (!data.ok) {
-          setDbError(data.detail || data.error || "Database connection failed.");
-        }
-      } catch {
-        setDbError("Could not reach the server. Make sure you ran 'npm run dev' and the server is running on port 3000.");
+        const data = await api.get<{ ok: boolean; error?: string; detail?: string }>("/api/health");
+        if (!cancelled && !data.ok) setDbError(data.detail || data.error || "Database connection failed.");
+      } catch (err) {
+        if (!cancelled) setDbError(errorMessage(err, "Could not reach the server."));
       } finally {
-        setCheckingDb(false);
+        if (!cancelled) setCheckingDb(false);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    checkHealth();
   }, []);
 
-  if (showLegal) return <LegalPage type={showLegal} onBack={() => setShowLegal(null)} />;
-
-  const toggleAuth = () => { setIsLogin(!isLogin); setError(""); };
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: formData.email, password: formData.password }),
-      });
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        throw new Error("Server returned an unexpected response. Check your DATABASE_URL in .env and restart the server.");
+      if (isLogin) {
+        await api.post("/api/auth/login", { email: formData.email, password: formData.password });
+      } else {
+        await api.post("/api/auth/register", formData);
       }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login failed");
-      onAuthSuccess();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
+      // Full navigation so the server layout re-reads the new session cookie.
+      router.replace(nextPath);
+      router.refresh();
+    } catch (err) {
+      setError(errorMessage(err, isLogin ? "Sign in failed." : "Registration failed."));
       setLoading(false);
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true); setError("");
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        throw new Error("Server returned an unexpected response. Check your DATABASE_URL in .env and restart the server.");
-      }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Registration failed");
-      onAuthSuccess();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  const fillDemoAccount = (email: string) => {
+    setFormData((f) => ({ ...f, email, password: DEMO_PASSWORD }));
+    setError("");
   };
 
-  // ── DB Setup Error Screen ─────────────────────────────────────
+  // ── Database setup error screen ─────────────────────────────
   if (!checkingDb && dbError) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <div className="max-w-2xl w-full space-y-6">
-          {/* Brand */}
           <div className="flex items-center gap-3 justify-center">
             <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white text-xl">R</div>
             <span className="text-white font-black text-xl">ResuMate</span>
           </div>
 
-          {/* Error Card */}
           <div className="bg-slate-900 rounded-2xl border border-rose-500/30 p-6 sm:p-8 space-y-6">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center shrink-0">
@@ -116,7 +95,6 @@ export default function AuthPage({ onAuthSuccess }: { onAuthSuccess: () => void 
               </div>
             </div>
 
-            {/* Setup Steps */}
             <div className="space-y-4">
               <h2 className="text-slate-300 font-bold text-sm flex items-center gap-2">
                 <Database className="w-4 h-4 text-indigo-400" /> Fix it in 3 steps:
@@ -145,7 +123,9 @@ export default function AuthPage({ onAuthSuccess }: { onAuthSuccess: () => void 
               ].map(({ step, title, code, note, extra }) => (
                 <div key={step} className="bg-slate-800/60 rounded-xl border border-slate-700 p-4">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-[11px] font-black text-white shrink-0">{step}</span>
+                    <span className="w-6 h-6 rounded-lg bg-indigo-600 flex items-center justify-center text-[11px] font-black text-white shrink-0">
+                      {step}
+                    </span>
                     <span className="text-white font-bold text-sm">{title}</span>
                   </div>
                   <div className="flex items-center gap-2 bg-slate-950 rounded-lg px-3 py-2 mb-2">
@@ -162,23 +142,29 @@ export default function AuthPage({ onAuthSuccess }: { onAuthSuccess: () => void 
               ))}
             </div>
 
-            {/* Retry */}
             <button
-              onClick={() => { setDbError(null); setCheckingDb(true); window.location.reload(); }}
+              onClick={() => window.location.reload()}
               className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-colors"
             >
               Retry Connection
             </button>
           </div>
 
-          {/* PostgreSQL quick install hint */}
           <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
             <p className="text-slate-500 text-xs text-center">
-              <span className="font-bold text-slate-400">Don't have PostgreSQL?</span>
-              {" "}Use{" "}
-              <a href="https://www.postgresql.org/download/" target="_blank" rel="noreferrer" className="text-indigo-400 underline">postgresql.org/download</a>,{" "}
-              <a href="https://railway.app" target="_blank" rel="noreferrer" className="text-indigo-400 underline">Railway.app</a>, or{" "}
-              <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-indigo-400 underline">Supabase</a> for a free hosted DB.
+              <span className="font-bold text-slate-400">Don&apos;t have PostgreSQL?</span> Use{" "}
+              <a href="https://www.postgresql.org/download/" target="_blank" rel="noreferrer" className="text-indigo-400 underline">
+                postgresql.org/download
+              </a>
+              ,{" "}
+              <a href="https://railway.app" target="_blank" rel="noreferrer" className="text-indigo-400 underline">
+                Railway
+              </a>
+              , or{" "}
+              <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-indigo-400 underline">
+                Supabase
+              </a>{" "}
+              for a free hosted DB.
             </p>
           </div>
         </div>
@@ -186,169 +172,227 @@ export default function AuthPage({ onAuthSuccess }: { onAuthSuccess: () => void 
     );
   }
 
-  // ── Checking DB spinner ──
   if (checkingDb) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
         <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white text-xl">R</div>
         <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-slate-500 text-xs">Connecting to database...</p>
+        <p className="text-slate-500 text-xs">Connecting to database…</p>
       </div>
     );
   }
 
-  // ── Normal Auth UI ────────────────────────────────────────────
-  return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 overflow-hidden">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col md:flex-row min-h-[580px]">
+  // ── Auth UI ─────────────────────────────────────────────────
+  const otherHref = isLogin ? "/sign-up" : "/sign-in";
 
-        {/* Sliding Overlay (desktop) */}
-        <div className={`
-          absolute top-0 w-1/2 h-full bg-indigo-600 z-20
-          hidden md:flex flex-col items-center justify-center text-white p-10 text-center shadow-2xl
-          transition-all duration-700 ease-in-out
-          ${isLogin ? "left-1/2 rounded-l-[80px]" : "left-0 rounded-r-[80px]"}
-        `}>
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col md:flex-row min-h-[580px]">
+        {/* Sliding promo panel (desktop) */}
+        <div
+          className={`absolute top-0 w-1/2 h-full bg-indigo-600 z-20 hidden md:flex flex-col items-center justify-center text-white p-10 text-center shadow-2xl transition-all duration-700 ease-in-out ${
+            isLogin ? "left-1/2 rounded-l-[80px]" : "left-0 rounded-r-[80px]"
+          }`}
+        >
           <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto shadow-inner mb-5">
             <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-black tracking-tight leading-tight mb-3">
-            {isLogin ? "New to ResuMate?" : "Welcome Back!"}
+            {isLogin ? "New to ResuMate?" : "Welcome back!"}
           </h2>
           <p className="text-indigo-100 text-sm leading-relaxed max-w-xs mb-6">
             {isLogin
               ? "Join 5,000+ students building careers at top-tier companies with AI-powered resumes."
               : "Continue tailoring your professional story and tracking your application performance."}
           </p>
-          <button onClick={toggleAuth} className="px-8 py-3 rounded-full border-2 border-white/50 hover:border-white hover:bg-white hover:text-indigo-600 font-bold text-sm transition-all">
+          <Link
+            href={otherHref}
+            className="px-8 py-3 rounded-full border-2 border-white/50 hover:border-white hover:bg-white hover:text-indigo-600 font-bold text-sm transition-all"
+          >
             {isLogin ? "Sign Up Now" : "Sign In"}
-          </button>
+          </Link>
           <div className="absolute -top-8 -left-8 w-32 h-32 bg-white/5 rounded-full blur-2xl" />
         </div>
 
-        {/* Login Panel */}
-        <div className={`w-full md:w-1/2 flex items-center justify-center p-6 sm:p-10 transition-all duration-700
-          ${isLogin ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none absolute md:static"}`}>
-          <div className="w-full max-w-sm space-y-6">
+        {/* Form panel */}
+        <div className={`w-full md:w-1/2 flex items-center justify-center p-6 sm:p-10 ${isLogin ? "" : "md:order-2"}`}>
+          <div className="w-full max-w-sm space-y-5">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black text-sm">R</div>
                 <span className="font-black text-slate-900 text-sm">ResuMate</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Sign In</h1>
-              <p className="text-slate-500 text-xs mt-1">Use your student email to continue.</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                {isLogin ? "Sign In" : "Create Account"}
+              </h1>
+              <p className="text-slate-500 text-xs mt-1">
+                {isLogin ? "Use your student email to continue." : "Build your professional student identity."}
+              </p>
             </div>
 
-            {error && isLogin && (
-              <div className="p-3 bg-rose-50 text-rose-700 text-xs font-bold rounded-xl border border-rose-100 flex items-start gap-2">
+            {error && (
+              <div
+                role="alert"
+                className="p-3 bg-rose-50 text-rose-700 text-xs font-bold rounded-xl border border-rose-100 flex items-start gap-2"
+              >
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {error}
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Email Address</label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                  <input type="email" required placeholder="alex.chen@berkeley.edu"
-                    value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all" />
+            <form onSubmit={submit} className="space-y-3">
+              {!isLogin && (
+                <Field label="Full Name" Icon={User}>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="name"
+                    placeholder="Jordan Smith"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className={INPUT}
+                  />
+                </Field>
+              )}
+
+              <Field label="Email Address" Icon={Mail}>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="alex.chen@berkeley.edu"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className={INPUT}
+                />
+              </Field>
+
+              <Field label={isLogin ? "Password" : "Password (min 8 chars, 1 number)"} Icon={Lock}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
+                  autoComplete={isLogin ? "current-password" : "new-password"}
+                  placeholder={isLogin ? "••••••••" : "Create a password"}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className={`${INPUT} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </Field>
+
+              {!isLogin && (
+                <Field label="Academic Headline (optional)" Icon={GraduationCap}>
+                  <input
+                    type="text"
+                    placeholder="BS Physics @ MIT '26"
+                    value={formData.headline}
+                    onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
+                    className={INPUT}
+                  />
+                </Field>
+              )}
+
+              {!isLogin && (
+                <div className="flex items-start gap-2 pt-1">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <p className="text-[9px] text-slate-500 leading-snug">
+                    By signing up, you agree to our{" "}
+                    <Link href="/terms" className="font-bold underline hover:text-indigo-600">
+                      Terms
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" className="font-bold underline hover:text-indigo-600">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </p>
                 </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Password</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                  <input type="password" placeholder="••••••••"
-                    value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all" />
-                </div>
-              </div>
-              <button type="submit" disabled={loading}
-                className="w-full py-3.5 bg-slate-900 hover:bg-black text-white rounded-2xl font-black text-sm transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60">
-                {loading ? "Signing in..." : <><span>Sign In</span><ArrowRight className="w-4 h-4" /></>}
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className={`w-full py-3.5 rounded-2xl font-black text-sm transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60 ${
+                  isLogin ? "bg-slate-900 hover:bg-black text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                }`}
+              >
+                {loading ? (
+                  isLogin ? "Signing in…" : "Creating…"
+                ) : (
+                  <>
+                    <span>{isLogin ? "Sign In" : "Get Started"}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </form>
 
-            <div className="relative py-1">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200" /></div>
-              <div className="relative flex justify-center"><span className="bg-white px-2 text-[10px] text-slate-400 font-bold uppercase">Demo Quick Login</span></div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { name: "Alex Chen", sub: "CS @ Berkeley", email: "alex.chen@berkeley.edu" },
-                { name: "Maya Patel", sub: "Bio @ Hopkins", email: "m.patel@jhu.edu" },
-              ].map((u) => (
-                <button key={u.email} type="button"
-                  onClick={() => setFormData({ ...formData, email: u.email, password: "demo_password" })}
-                  className="py-2.5 px-3 border border-slate-200 rounded-xl text-left hover:bg-slate-50 hover:border-indigo-200 transition-colors">
-                  <div className="text-[11px] font-black text-slate-800">{u.name}</div>
-                  <div className="text-[10px] text-slate-400">{u.sub}</div>
-                </button>
-              ))}
-            </div>
-
-            <p className="md:hidden text-center text-xs text-slate-500">
-              Don&apos;t have an account?{" "}
-              <button type="button" onClick={toggleAuth} className="text-indigo-600 font-bold underline">Sign Up</button>
-            </p>
-          </div>
-        </div>
-
-        {/* Register Panel */}
-        <div className={`w-full md:w-1/2 flex items-center justify-center p-6 sm:p-10 transition-all duration-700
-          ${!isLogin ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none absolute md:static"}`}>
-          <div className="w-full max-w-sm space-y-5">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Create Account</h1>
-              <p className="text-slate-500 text-xs mt-1">Build your professional student identity.</p>
-            </div>
-
-            {error && !isLogin && (
-              <div className="p-3 bg-rose-50 text-rose-700 text-xs font-bold rounded-xl border border-rose-100 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {error}
-              </div>
-            )}
-
-            <form onSubmit={handleRegister} className="space-y-3">
-              {[
-                { label: "Full Name", placeholder: "Jordan Smith", field: "name" as const, type: "text", Icon: User, required: true },
-                { label: "Email", placeholder: "jordan@university.edu", field: "email" as const, type: "email", Icon: Mail, required: true },
-                { label: "Password (min 6 chars)", placeholder: "Create a password", field: "password" as const, type: "password", Icon: Lock, required: true },
-                { label: "Academic Headline (optional)", placeholder: "BS Physics @ MIT '26", field: "headline" as const, type: "text", Icon: GraduationCap, required: false },
-              ].map(({ label, placeholder, field, type, Icon, required }) => (
-                <div key={field}>
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">{label}</label>
-                  <div className="relative">
-                    <Icon className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                    <input type={type} required={required} placeholder={placeholder}
-                      value={formData[field]} onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all" />
+            {isLogin && (
+              <>
+                <div className="relative py-1">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-200" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-white px-2 text-[10px] text-slate-400 font-bold uppercase">Demo quick login</span>
                   </div>
                 </div>
-              ))}
-
-              <div className="flex items-start gap-2 pt-1">
-                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <p className="text-[9px] text-slate-500 leading-snug">
-                  By signing up, you agree to our{" "}
-                  <button type="button" onClick={() => setShowLegal("terms")} className="font-bold underline hover:text-indigo-600">Terms</button> and{" "}
-                  <button type="button" onClick={() => setShowLegal("privacy")} className="font-bold underline hover:text-indigo-600">Privacy Policy</button>.
+                <div className="grid grid-cols-2 gap-2">
+                  {DEMO_ACCOUNTS.map((u) => (
+                    <button
+                      key={u.email}
+                      type="button"
+                      onClick={() => fillDemoAccount(u.email)}
+                      className="py-2.5 px-3 border border-slate-200 rounded-xl text-left hover:bg-slate-50 hover:border-indigo-200 transition-colors"
+                    >
+                      <div className="text-[11px] font-black text-slate-800">{u.name}</div>
+                      <div className="text-[10px] text-slate-400">{u.sub}</div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-center text-[10px] text-slate-400">
+                  Demo password: <code className="font-mono font-bold text-slate-500">{DEMO_PASSWORD}</code>
                 </p>
-              </div>
-
-              <button type="submit" disabled={loading}
-                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60">
-                {loading ? "Creating..." : <><span>Get Started</span><ArrowRight className="w-4 h-4" /></>}
-              </button>
-            </form>
+              </>
+            )}
 
             <p className="md:hidden text-center text-xs text-slate-500">
-              Already have an account?{" "}
-              <button type="button" onClick={toggleAuth} className="text-indigo-600 font-bold underline">Sign In</button>
+              {isLogin ? "Don't have an account? " : "Already have an account? "}
+              <Link href={otherHref} className="text-indigo-600 font-bold underline">
+                {isLogin ? "Sign Up" : "Sign In"}
+              </Link>
             </p>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const INPUT =
+  "w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all";
+
+function Field({
+  label,
+  Icon,
+  children,
+}: {
+  label: string;
+  Icon: React.ElementType;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">{label}</label>
+      <div className="relative">
+        <Icon className="w-4 h-4 absolute left-3 top-3 text-slate-400 pointer-events-none" />
+        {children}
       </div>
     </div>
   );

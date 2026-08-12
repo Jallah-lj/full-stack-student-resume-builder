@@ -39,7 +39,7 @@ ResuMate is the all-in-one platform that guides students through every step — 
 ### 🔐 Authentication & Account Security
 - Sliding animated **Sign In / Sign Up** interface with credential validation
 - Secure **session cookie management** (HTTP-only, 30-day expiry)
-- **Change Password** flow with client and server-side validation
+- **Change Password** flow requiring the current password, validated client and server-side
 - Multi-student persona switching for demo exploration
 - **Sign Out** with session cookie invalidation
 
@@ -50,7 +50,7 @@ Tabbed settings interface across 5 sections:
 | **Basic Info** | Name, Headline, Phone, Location, LinkedIn, GitHub, Portfolio, Bio, Profile Picture Upload |
 | **University** | Institution, Department/Major, Expected Graduation Year |
 | **Career Goals** | Preferred Job Role / Career Track + AI insights |
-| **Security** | Change Password with confirmation matching and strength rules |
+| **Security** | Change Password with current-password re-auth, confirmation matching and strength rules |
 | **Preferences** | Theme (Light/Dark/System), Email Notifications, Application Alerts, Weekly Digest |
 
 ### 📄 Multi-Resume Management (Full CRUD)
@@ -318,11 +318,13 @@ npm run start
 
 The platform ships with three fully seeded student personas:
 
-| Student | University | Major | Career Track |
-|---------|-----------|-------|-------------|
-| **Alex Chen** | UC Berkeley | CS & Data Science | Software Engineering |
-| **Maya Patel** | Johns Hopkins | Molecular Biology | Clinical Research |
-| **Marcus Vance** | NYU Stern | Finance & Economics | Investment Banking |
+| Student | Email | University | Career Track |
+|---------|-------|-----------|-------------|
+| **Alex Chen** | `alex.chen@berkeley.edu` | UC Berkeley | Software Engineering |
+| **Maya Patel** | `m.patel@jhu.edu` | Johns Hopkins | Clinical Research |
+| **Marcus Vance** | `mvance@stern.nyu.edu` | NYU Stern | Investment Banking |
+
+The password for all three demo accounts is **`demo1234`**.
 
 Each persona includes complete resumes, work experience, projects, skills, certifications, and saved job applications — so the platform feels **alive on first load**.
 
@@ -333,9 +335,11 @@ Each persona includes complete resumes, work experience, projects, skills, certi
 | Layer | Implementation |
 |-------|---------------|
 | **Session Management** | HTTP-only cookies with 30-day expiry and `SameSite=Lax` |
-| **Password Storage** | Hashed credential stored in `password_hash` column |
-| **Password Validation** | Minimum 6-character rule + confirmation matching |
-| **Route Protection** | Server-side session resolver on every API route |
+| **Password Storage** | `scrypt` hashes with a per-user random salt (`salt:hash`), verified in constant time |
+| **Password Validation** | Minimum 8 characters; changing a password requires the current one |
+| **Route Protection** | Edge middleware guard + server-side session check on every API route |
+| **Authorization** | Every resource query is scoped to the session user; cross-account IDs return 404 |
+| **Secret Hygiene** | API responses are built from an explicit public-field allowlist — hashes never leave the server |
 | **Session Expiry** | Cookie cleared on logout with zero-epoch expiry date |
 | **Input Sanitization** | Email normalized to lowercase, all inputs trimmed |
 | **Cascade Deletes** | FK constraints prevent orphaned data on account removal |

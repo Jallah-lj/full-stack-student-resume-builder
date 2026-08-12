@@ -1,49 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
 import { db } from "@/db";
-import { resumes, education, workExperiences, projects, extracurriculars, skills, certifications, users } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { route, requireUser, requireOwnedResume, logActivity } from "@/lib/api";
+import { toPublicUser } from "@/lib/auth";
+import { loadResumeBundle } from "../route";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id: resumeId } = await params;
+export const dynamic = "force-dynamic";
 
-    const resumeList = await db.select().from(resumes).where(eq(resumes.id, resumeId)).limit(1);
-    if (resumeList.length === 0) {
-      return NextResponse.json({ error: "Resume not found" }, { status: 404 });
-    }
-    const resume = resumeList[0];
-    const ownerList = await db.select().from(users).where(eq(users.id, resume.userId)).limit(1);
-    const user = ownerList[0] || null;
+type Ctx = { params: Promise<{ id: string }> };
 
-    const eduList = await db.select().from(education).where(eq(education.resumeId, resumeId)).orderBy(asc(education.sortOrder));
-    const workList = await db.select().from(workExperiences).where(eq(workExperiences.resumeId, resumeId)).orderBy(asc(workExperiences.sortOrder));
-    const projList = await db.select().from(projects).where(eq(projects.resumeId, resumeId)).orderBy(asc(projects.sortOrder));
-    const extraList = await db.select().from(extracurriculars).where(eq(extracurriculars.resumeId, resumeId)).orderBy(asc(extracurriculars.sortOrder));
-    const skillList = await db.select().from(skills).where(eq(skills.resumeId, resumeId)).orderBy(asc(skills.sortOrder));
-    const certList = await db.select().from(certifications).where(eq(certifications.resumeId, resumeId)).orderBy(asc(certifications.sortOrder));
+/** GET /api/resumes/:id/export — downloadable JSON backup, owner only. */
+export const GET = route(async (_req: NextRequest, { params }: Ctx) => {
+  const user = await requireUser();
+  const { id: resumeId } = await params;
 
-    const backupData = {
-      version: "1.0",
-      exportedAt: new Date().toISOString(),
-      resume,
-      user,
-      education: eduList,
-      workExperiences: workList,
-      projects: projList,
-      extracurriculars: extraList,
-      skills: skillList,
-      certifications: certList,
-    };
+  const resume = await requireOwnedResume(resumeId, user.id);
+  const ownerRows = await db.select().from(users).where(eq(users.id, resume.userId)).limit(1);
+  const sections = await loadResumeBundle(resumeId);
 
-    return new NextResponse(JSON.stringify(backupData, null, 2), {
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename="${resume.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-backup.json"`,
-      },
-    });
-  } catch (error) {
-    console.error("Export resume error:", error);
-    return NextResponse.json({ error: "Failed to export resume backup" }, { status: 500 });
-  }
-}
+  const backup = {
+    version: "1.0",
+    exportedAt: new Date().toISOString(),
+    resume,
+    // Never let a password hash end up inside a downloaded file.
+    user: ownerRows[0] ? toPublicUser(ownerRows[0]) : null,
+    ...sections,
+  };
+
+  await logActivity({
+    userId: user.id,
+    resumeId,
+    type: "export",
+    action: "Resume exported",
+    target: `${resume.title}.json`,
+    result: "JSON backup",
+    status: "success",
+  });
+
+  const filename = `${resume.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "resume"}-backup.json`;
+
+  return new NextResponse(JSON.stringify(backup, null, 2), {
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    },
+  });
+});

@@ -1,46 +1,50 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { createSession, sessionCookieOptions, SESSION_COOKIE, toPublicUser } from "@/lib/auth";
+import { route, ok, fail, logActivity, newId } from "@/lib/api";
+import { hashPassword, validatePassword } from "@/lib/password";
+import { seedDatabase } from "@/db/seed";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest) {
-  try {
-    if (!process.env.DATABASE_URL) {
-      return NextResponse.json({ error: "DATABASE_URL is not configured." }, { status: 503 });
-    }
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    const body = await req.json();
-    const { name, email, headline, phone, location, linkedinUrl, githubUrl, websiteUrl, bio, password } = body;
+export const POST = route(async (req: NextRequest) => {
+  await seedDatabase();
 
-    if (!name || !email) {
-      return NextResponse.json({ error: "Name and Email are required." }, { status: 400 });
-    }
+  const body = await req.json();
+  const { name, email, password, headline } = body;
 
-    if (password && password.trim().length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
-    }
+  if (!name || !String(name).trim()) return fail("Please enter your full name.", 400);
+  if (!email || !EMAIL_RE.test(String(email).trim())) {
+    return fail("Please enter a valid email address.", 400);
+  }
 
-    const cleanEmail = email.trim().toLowerCase();
-    const existing = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
-    if (existing.length > 0) {
-      return NextResponse.json({ error: "An account with this email already exists." }, { status: 400 });
-    }
+  const policyError = validatePassword(String(password || ""));
+  if (policyError) return fail(policyError, 400);
 
-    const newUserId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const [newUser] = await db.insert(users).values({
-      id: newUserId,
-      name: name.trim(),
+  const cleanEmail = String(email).trim().toLowerCase();
+  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, cleanEmail)).limit(1);
+  if (existing.length > 0) {
+    return fail("An account with this email already exists. Try signing in instead.", 409);
+  }
+
+  const [newUser] = await db
+    .insert(users)
+    .values({
+      id: newId("user"),
+      name: String(name).trim(),
       email: cleanEmail,
-      passwordHash: password?.trim() || "demo_password",
-      headline: headline || "Student",
-      phone: phone || "",
-      location: location || "",
-      linkedinUrl: linkedinUrl || "",
-      githubUrl: githubUrl || "",
-      websiteUrl: websiteUrl || "",
-      bio: bio || "",
+      passwordHash: await hashPassword(String(password)),
+      headline: headline?.trim() || "Student",
+      phone: "",
+      location: "",
+      linkedinUrl: "",
+      githubUrl: "",
+      websiteUrl: "",
+      bio: "",
       profilePictureUrl: "",
       university: "",
       department: "",
@@ -50,18 +54,20 @@ export async function POST(req: NextRequest) {
       emailNotifications: true,
       applicationAlerts: true,
       weeklyDigest: false,
-    }).returning();
+    })
+    .returning();
 
-    const response = NextResponse.json({ success: true, user: newUser });
-    response.cookies.set("resumate_user_id", newUser.id, {
-      path: "/",
-      httpOnly: true,
-      maxAge: 60 * 60 * 24 * 30,
-      sameSite: "lax",
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Register error:", err?.message);
-    return NextResponse.json({ error: err?.message || "Failed to create account" }, { status: 500 });
-  }
-}
+  const { token } = await createSession(newUser.id, req.headers.get("user-agent"));
+
+  await logActivity({
+    userId: newUser.id,
+    type: "auth",
+    action: "Account created",
+    target: newUser.email,
+    status: "success",
+  });
+
+  const res = ok({ success: true, user: toPublicUser(newUser) }, 201);
+  res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
+  return res;
+});

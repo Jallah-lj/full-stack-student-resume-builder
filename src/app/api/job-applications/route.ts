@@ -1,52 +1,81 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { jobApplications } from "@/db/schema";
+import { jobApplications, resumes } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { route, ok, fail, requireUser, requireOwnedResume, logActivity, newId } from "@/lib/api";
 
-export async function GET() {
-  try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export const dynamic = "force-dynamic";
 
-    const apps = await db.select().from(jobApplications).where(eq(jobApplications.userId, user.id)).orderBy(desc(jobApplications.createdAt));
-    return NextResponse.json({ jobApplications: apps });
-  } catch (error) {
-    console.error("Fetch job applications error:", error);
-    return NextResponse.json({ error: "Failed to fetch job applications" }, { status: 500 });
-  }
-}
+const STATUSES = ["draft", "applied", "interviewing", "offer", "rejected"] as const;
 
-export async function POST(req: NextRequest) {
-  try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+/** GET /api/job-applications — tracker rows joined with their resume title. */
+export const GET = route(async () => {
+  const user = await requireUser();
 
-    const body = await req.json();
-    const { resumeId, companyName, jobTitle, jobDescription, matchScore, missingKeywords, matchedKeywords, status } = body;
+  const apps = await db
+    .select({
+      id: jobApplications.id,
+      resumeId: jobApplications.resumeId,
+      companyName: jobApplications.companyName,
+      jobTitle: jobApplications.jobTitle,
+      jobDescription: jobApplications.jobDescription,
+      matchScore: jobApplications.matchScore,
+      missingKeywords: jobApplications.missingKeywords,
+      matchedKeywords: jobApplications.matchedKeywords,
+      status: jobApplications.status,
+      createdAt: jobApplications.createdAt,
+      resumeTitle: resumes.title,
+    })
+    .from(jobApplications)
+    .leftJoin(resumes, eq(resumes.id, jobApplications.resumeId))
+    .where(eq(jobApplications.userId, user.id))
+    .orderBy(desc(jobApplications.createdAt));
 
-    const newAppId = `job_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  return ok({ jobApplications: apps });
+});
 
-    const [newApp] = await db.insert(jobApplications).values({
-      id: newAppId,
+/** POST /api/job-applications — save a tailored match to the tracker. */
+export const POST = route(async (req: NextRequest) => {
+  const user = await requireUser();
+  const body = await req.json();
+  const { resumeId, companyName, jobTitle, jobDescription, matchScore, missingKeywords, matchedKeywords, status } = body;
+
+  if (!resumeId) return fail("Choose which resume you applied with.", 400);
+  // resumeId is a NOT NULL foreign key — verify ownership before inserting
+  // so we return a clean 403/404 instead of a database constraint error.
+  await requireOwnedResume(resumeId, user.id);
+
+  if (!companyName?.trim()) return fail("Company name is required.", 400);
+  if (!jobTitle?.trim()) return fail("Job title is required.", 400);
+
+  const nextStatus = STATUSES.includes(status) ? status : "applied";
+  const asJson = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v ?? []));
+
+  const [application] = await db
+    .insert(jobApplications)
+    .values({
+      id: newId("job"),
       userId: user.id,
-      resumeId: resumeId || "",
-      companyName: companyName || "Target Company",
-      jobTitle: jobTitle || "Target Role",
+      resumeId,
+      companyName: companyName.trim(),
+      jobTitle: jobTitle.trim(),
       jobDescription: jobDescription || "",
-      matchScore: matchScore || 75,
-      missingKeywords: typeof missingKeywords === "object" ? JSON.stringify(missingKeywords) : (missingKeywords || "[]"),
-      matchedKeywords: typeof matchedKeywords === "object" ? JSON.stringify(matchedKeywords) : (matchedKeywords || "[]"),
-      status: status || "applied",
-    }).returning();
+      matchScore: Number(matchScore) || 75,
+      missingKeywords: asJson(missingKeywords),
+      matchedKeywords: asJson(matchedKeywords),
+      status: nextStatus,
+    })
+    .returning();
 
-    return NextResponse.json({ success: true, application: newApp });
-  } catch (error) {
-    console.error("Create job application error:", error);
-    return NextResponse.json({ error: "Failed to save job application match" }, { status: 500 });
-  }
-}
+  await logActivity({
+    userId: user.id,
+    resumeId,
+    type: "application",
+    action: "Application tracked",
+    target: `${application.jobTitle} · ${application.companyName}`,
+    result: `${application.matchScore}% match`,
+    status: "success",
+  });
+
+  return ok({ success: true, application }, 201);
+});

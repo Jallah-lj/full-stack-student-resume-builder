@@ -1,17 +1,39 @@
 import { db } from "./index";
 import { users, resumes, education, workExperiences, projects, extracurriculars, skills, certifications, jobApplications } from "./schema";
-import { eq } from "drizzle-orm";
+import { hashPassword } from "@/lib/password";
 
-export async function seedDatabase() {
+/** Shared demo credential. Documented in the README and on the sign-in screen. */
+export const DEMO_PASSWORD = "demo1234";
+
+// Guards against two concurrent requests both seeding on a cold start.
+let seedPromise: Promise<void> | null = null;
+
+export async function seedDatabase(): Promise<void> {
+  if (!seedPromise) {
+    seedPromise = runSeed().catch((err) => {
+      seedPromise = null; // allow a retry on the next request
+      throw err;
+    });
+  }
+  return seedPromise;
+}
+
+async function runSeed() {
   try {
     // Check if users exist
-    const existingUsers = await db.select().from(users);
+    const existingUsers = await db.select({ id: users.id }).from(users).limit(1);
     if (existingUsers.length > 0) {
-      console.log("Database already seeded. Skipping initial seed.");
       return;
     }
 
     console.log("Seeding database with realistic student profiles...");
+    // Hash separately per user so every account gets its own random salt —
+    // identical salts would let one cracked hash reveal all three accounts.
+    const [alexPasswordHash, mayaPasswordHash, marcusPasswordHash] = await Promise.all([
+      hashPassword(DEMO_PASSWORD),
+      hashPassword(DEMO_PASSWORD),
+      hashPassword(DEMO_PASSWORD),
+    ]);
 
     // User 1: Alex Chen
     const user1Id = "user_alex_chen";
@@ -19,7 +41,7 @@ export async function seedDatabase() {
       id: user1Id,
       name: "Alex Chen",
       email: "alex.chen@berkeley.edu",
-      passwordHash: "demo_password_hash",
+      passwordHash: alexPasswordHash,
       headline: "Computer Science & Data Science Student @ UC Berkeley | Software Engineering Intern",
       phone: "(510) 847-2931",
       location: "Berkeley, CA",
@@ -299,7 +321,7 @@ export async function seedDatabase() {
       id: user2Id,
       name: "Maya Patel",
       email: "m.patel@jhu.edu",
-      passwordHash: "demo_password_hash",
+      passwordHash: mayaPasswordHash,
       headline: "Molecular & Cellular Biology Senior @ Johns Hopkins | Pre-Med Research Scholar",
       phone: "(410) 555-0182",
       location: "Baltimore, MD",
@@ -396,7 +418,7 @@ export async function seedDatabase() {
       id: user3Id,
       name: "Marcus Vance",
       email: "mvance@stern.nyu.edu",
-      passwordHash: "demo_password_hash",
+      passwordHash: marcusPasswordHash,
       headline: "Finance & Economics @ NYU Stern | Incoming Investment Banking Analyst",
       phone: "(212) 998-0100",
       location: "New York, NY",
@@ -481,5 +503,25 @@ export async function seedDatabase() {
     console.log("Successfully seeded database with realistic student records!");
   } catch (error) {
     console.error("Error seeding database:", error);
+    throw error;
   }
+}
+
+/**
+ * Wipe every table and re-seed. Used by the "Reset demo data" action.
+ * Deleting users cascades to resumes, sections, applications and sessions.
+ */
+export async function resetDatabase() {
+  await db.delete(jobApplications);
+  await db.delete(certifications);
+  await db.delete(skills);
+  await db.delete(extracurriculars);
+  await db.delete(projects);
+  await db.delete(workExperiences);
+  await db.delete(education);
+  await db.delete(resumes);
+  await db.delete(users);
+
+  seedPromise = null;
+  await seedDatabase();
 }

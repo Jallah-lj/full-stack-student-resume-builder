@@ -1,34 +1,79 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { route, ok, fail, requireUser, requireOwnedResume, logActivity } from "@/lib/api";
+import { loadResumeBundle } from "../../resumes/[id]/route";
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { companyName, jobTitle, jobDescription, user, education, workExperiences, skills } = body;
+export const dynamic = "force-dynamic";
 
-    const studentName = user?.name || "Student Applicant";
-    const university = education?.[0]?.institution || "University";
-    const major = education?.[0]?.major || "Degree Program";
-    const expectedGrad = education?.[0]?.endDate || "Expected Graduation";
-    const topCompany = workExperiences?.[0]?.company ? `my recent experience at ${workExperiences[0].company}` : "my hands-on project portfolio";
-    const primarySkills = skills?.[0]?.skillsList || "full-stack engineering, quantitative problem solving, and analytical research";
+/**
+ * POST /api/ai/cover-letter
+ *
+ * Builds the letter server-side from the stored resume the user owns,
+ * so the output always reflects real saved data.
+ */
+export const POST = route(async (req: NextRequest) => {
+  const user = await requireUser();
+  const { resumeId, companyName, jobTitle, jobDescription } = await req.json();
 
-    const letter = `Dear Hiring Team at ${companyName || "Target Organization"},
+  if (!resumeId) return fail("Select a resume to base the letter on.", 400);
+  if (!companyName?.trim()) return fail("Enter the company name.", 400);
+  if (!jobTitle?.trim()) return fail("Enter the role you're applying for.", 400);
 
-I am writing to express my strong interest in the ${jobTitle || "Internship / Full-Time"} position at ${companyName || "your organization"}. As a current undergraduate studying ${major} at ${university} (${expectedGrad}), I have built a solid foundation in ${primarySkills}. ${companyName ? `${companyName}'s mission and engineering standard deeply align with my career aspiration to solve high-impact technical problems.` : ""}
+  const resume = await requireOwnedResume(resumeId, user.id);
+  const ownerRows = await db.select().from(users).where(eq(users.id, resume.userId)).limit(1);
+  const owner = ownerRows[0];
+  const { education, workExperiences, projects, skills } = await loadResumeBundle(resumeId);
 
-Through ${topCompany}, I have demonstrated my capability to engineer scalable solutions, collaborate across cross-functional teams, and translate theoretical coursework into production-ready results. ${jobDescription ? `Given your focus on ${jobDescription.slice(0, 120)}..., I am confident my background renders me a strong match for your engineering and analytical objectives.` : "I thrive in dynamic, fast-paced environments where I can take ownership of technical initiatives."}
+  const company = companyName.trim();
+  const role = jobTitle.trim();
 
-I am eager to contribute my technical skills and enthusiasm to the team at ${companyName || "your team"}. Thank you for your time and consideration, and I look forward to the opportunity to discuss how my background fits your upcoming cohort.
+  const edu = education[0];
+  const university = edu?.institution || owner?.university || "my university";
+  const major = edu?.major || owner?.department || "my field";
+  const gradLine = edu?.endDate ? ` (${edu.endDate})` : "";
+
+  const primarySkills =
+    skills[0]?.skillsList ||
+    "full-stack engineering, quantitative problem solving, and analytical research";
+
+  // Prefer real experience, fall back to a real project, then to coursework.
+  const experience = workExperiences[0];
+  const project = projects[0];
+  const proofPoint = experience
+    ? `my ${experience.role} experience at ${experience.company}`
+    : project
+      ? `building ${project.title}`
+      : "my hands-on project portfolio";
+
+  const jdLine = jobDescription?.trim()
+    ? `Your posting emphasizes ${jobDescription.trim().replace(/\s+/g, " ").slice(0, 140)}… — an area I have deliberately built depth in.`
+    : "I thrive in fast-moving environments where I can take ownership of technical work end to end.";
+
+  const contactLines = [owner?.email, owner?.phone, owner?.linkedinUrl].filter(Boolean).join("\n");
+
+  const letter = `Dear Hiring Team at ${company},
+
+I am writing to express my strong interest in the ${role} position at ${company}. As an undergraduate studying ${major} at ${university}${gradLine}, I have built a solid foundation in ${primarySkills}.
+
+Through ${proofPoint}, I have shown I can ship scalable solutions, collaborate across teams, and turn coursework into production-ready results. ${jdLine}
+
+I would welcome the chance to bring that same energy to ${company}. Thank you for your time and consideration — I look forward to discussing how my background fits your team's goals.
 
 Sincerely,
-${studentName}
-${user?.email || ""}
-${user?.phone || ""}
-${user?.linkedinUrl || ""}`;
+${owner?.name || "Student Applicant"}
+${contactLines}`;
 
-    return NextResponse.json({ coverLetter: letter });
-  } catch (error) {
-    console.error("Cover letter error:", error);
-    return NextResponse.json({ error: "Failed to generate cover letter" }, { status: 500 });
-  }
-}
+  await logActivity({
+    userId: user.id,
+    resumeId,
+    type: "ai",
+    action: "Cover letter drafted",
+    target: `${role} · ${company}`,
+    result: "Ready to send",
+    status: "success",
+  });
+
+  return ok({ coverLetter: letter });
+});

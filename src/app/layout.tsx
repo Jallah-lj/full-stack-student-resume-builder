@@ -1,10 +1,29 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Arena Next.js PostgreSQL Starter",
-  description: "Starter template with Next.js, Drizzle, and PostgreSQL.",
+  title: {
+    default: "ResuMate — AI-Powered Student Resume Builder",
+    template: "%s",
+  },
+  description:
+    "Build, tailor and optimize student resumes with real-time ATS scoring, AI bullet enhancement and smart job matching.",
+  applicationName: "ResuMate",
+  keywords: ["resume builder", "student resume", "ATS", "internship", "cover letter"],
+  openGraph: {
+    title: "ResuMate — AI-Powered Student Resume Builder",
+    description:
+      "Create recruiter-ready resumes with live ATS scoring, AI bullet rewriting and internship matching.",
+    type: "website",
+  },
+  robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

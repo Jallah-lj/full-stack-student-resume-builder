@@ -1,72 +1,90 @@
 "use client";
 
-import React, { useState } from "react";
-import { 
-  History, 
-  Search, 
-  Calendar, 
-  ArrowRight, 
-  Clock, 
-  Filter, 
-  FileText, 
-  Zap, 
-  CheckCircle2, 
-  AlertCircle,
-  Download,
-  MoreVertical,
-  Sparkles
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  History, Search, Clock, FileText, Zap, CheckCircle2,
+  AlertCircle, Download, Sparkles, Briefcase, LogIn, AlertTriangle, Pencil,
 } from "lucide-react";
+import { api, errorMessage } from "@/lib/client-api";
 
-const HISTORY_DATA = [
-  {
-    id: "h1",
-    action: "ATS Optimization Run",
-    target: "Stripe SWE Intern",
-    date: "Today, 2:45 PM",
-    result: "94% Match",
-    status: "success",
-    type: "ats"
-  },
-  {
-    id: "h2",
-    action: "Resume Exported",
-    target: "Alex_Chen_SWE_2026.pdf",
-    date: "Yesterday, 10:15 AM",
-    result: "v2.4 Final",
-    status: "info",
-    type: "export"
-  },
-  {
-    id: "h3",
-    action: "Bullet Enhancement",
-    target: "Meta Platforms Intern",
-    date: "Oct 24, 4:20 PM",
-    result: "AI Generated",
-    status: "success",
-    type: "ai"
-  },
-  {
-    id: "h4",
-    action: "Cover Letter Drafted",
-    target: "OpenAI Research",
-    date: "Oct 22, 11:30 AM",
-    result: "Ready to Send",
-    status: "success",
-    type: "ai"
-  },
-  {
-    id: "h5",
-    action: "Resume Template Changed",
-    target: "Academic CV Style",
-    date: "Oct 20, 9:00 AM",
-    result: "Applied to Resume #3",
-    status: "info",
-    type: "edit"
-  }
-];
+interface ActivityEvent {
+  id: string;
+  userId: string;
+  resumeId: string | null;
+  type: string;
+  action: string;
+  target: string | null;
+  result: string | null;
+  status: string;
+  createdAt: string;
+}
+
+const TYPE_META: Record<string, { icon: React.ElementType; label: string; chip: string }> = {
+  ats: { icon: Zap, label: "ATS", chip: "bg-amber-100 text-amber-800" },
+  ai: { icon: Sparkles, label: "AI", chip: "bg-purple-100 text-purple-800" },
+  export: { icon: Download, label: "Export", chip: "bg-blue-100 text-blue-800" },
+  edit: { icon: Pencil, label: "Edit", chip: "bg-slate-100 text-slate-700" },
+  application: { icon: Briefcase, label: "Applications", chip: "bg-emerald-100 text-emerald-800" },
+  auth: { icon: LogIn, label: "Account", chip: "bg-indigo-100 text-indigo-800" },
+};
+
+const FILTERS = ["all", "ats", "ai", "export", "edit", "application", "auth"] as const;
+
+/** Human-friendly relative timestamp ("2h ago"), falling back to a date. */
+function formatWhen(iso: string) {
+  const then = new Date(iso);
+  const diffMs = Date.now() - then.getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return then.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
 
 export function ActivityHistoryTab() {
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("all");
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await api.get<{ events: ActivityEvent[]; counts: Record<string, number>; total: number }>(
+          `/api/activity?type=${filter}&limit=150`
+        );
+        if (cancelled) return;
+        setEvents(data.events || []);
+        setCounts(data.counts || {});
+        setTotal(data.total || 0);
+        setError("");
+      } catch (err) {
+        if (!cancelled) setError(errorMessage(err, "Couldn't load your activity history."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filter]);
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return events;
+    return events.filter((e) =>
+      [e.action, e.target, e.result, e.type].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))
+    );
+  }, [events, search]);
 
   return (
     <div className="space-y-6">
@@ -74,100 +92,126 @@ export function ActivityHistoryTab() {
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200 mb-3">
-            <History className="w-3.5 h-3.5" /> Immutable Event Log
+            <History className="w-3.5 h-3.5" /> Account event log
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Activity & Audit History</h1>
-          <p className="text-slate-500 text-sm mt-1">Review every optimization, AI generation, and export event across your account.</p>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Activity &amp; Audit History</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Every optimization, AI generation, edit and export recorded on your account.
+          </p>
         </div>
-
-        <div className="flex gap-2 w-full md:w-auto">
-          <button className="flex-1 md:flex-none px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold shadow-md hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
-            <Download className="w-4 h-4" /> Export Log
-          </button>
+        <div className="text-right shrink-0">
+          <div className="text-3xl font-black text-slate-900">{total}</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total events</div>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-col md:flex-row gap-3">
+      {error && (
+        <div role="alert" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
+
+      {/* Controls */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-          <input 
-            type="text"
-            placeholder="Search by action, target or status..."
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+            placeholder="Search actions, resumes, companies…"
+            aria-label="Search activity"
+            className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
-        <button className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2">
-          <Filter className="w-4 h-4" /> Filters
-        </button>
-        <button className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2">
-          <Calendar className="w-4 h-4" /> Date Range
-        </button>
+        <div className="flex gap-1 overflow-x-auto bg-white border border-slate-200 rounded-xl p-1">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
+                filter === f ? "bg-indigo-600 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {f === "all" ? "All" : TYPE_META[f]?.label ?? f}
+              {f !== "all" && counts[f] ? <span className="ml-1 opacity-70">{counts[f]}</span> : null}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Activity Timeline */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200">
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-wider text-slate-400">Action</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-wider text-slate-400">Target Resource</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-wider text-slate-400">Execution Result</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-wider text-slate-400">Timestamp</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-wider text-slate-400 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {HISTORY_DATA.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        item.type === 'ats' ? 'bg-indigo-50 text-indigo-600' :
-                        item.type === 'ai' ? 'bg-purple-50 text-purple-600' :
-                        item.type === 'export' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {item.type === 'ats' ? <Zap className="w-4 h-4" /> :
-                         item.type === 'ai' ? <Sparkles className="w-4 h-4" /> :
-                         item.type === 'export' ? <FileText className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                      </div>
-                      <span className="text-xs font-bold text-slate-900">{item.action}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="text-xs text-slate-600 font-medium">{item.target}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${item.status === 'success' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-                      <span className={`text-[11px] font-bold ${item.status === 'success' ? 'text-emerald-700' : 'text-blue-700'}`}>
-                        {item.result}
+      {/* Timeline */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+        {loading ? (
+          <div className="divide-y divide-slate-100">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="p-4 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 animate-pulse shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-1/3 bg-slate-100 rounded animate-pulse" />
+                  <div className="h-2.5 w-1/4 bg-slate-100 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="p-14 text-center">
+            <History className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+            <h3 className="font-bold text-slate-700 text-sm">
+              {search ? "No matching events" : "No activity recorded yet"}
+            </h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              {search
+                ? "Try a different search term or switch filters."
+                : "Edit a resume, run an ATS scan or export a PDF — your audit trail builds itself."}
+            </p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {visible.map((event) => {
+              const meta = TYPE_META[event.type] || { icon: FileText, label: event.type, chip: "bg-slate-100 text-slate-700" };
+              const Icon = meta.icon;
+              const failed = event.status === "error" || event.status === "failed";
+              return (
+                <li key={event.id} className="p-4 flex items-start gap-4 hover:bg-slate-50/70 transition-colors">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      failed ? "bg-rose-50 text-rose-600" : "bg-indigo-50 text-indigo-600"
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-xs font-bold text-slate-900">{event.action}</p>
+                      <span className={`text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded ${meta.chip}`}>
+                        {meta.label}
                       </span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-slate-400 font-medium">
-                    {item.date}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-400 transition-colors">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {event.target && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{event.target}</p>}
+                    <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {formatWhen(event.createdAt)}
+                    </p>
+                  </div>
 
-        {/* Empty Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-          <button className="text-[10px] font-black text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-widest">
-            View All Historical Events
-          </button>
-        </div>
+                  <div className="shrink-0 text-right flex items-center gap-2">
+                    {event.result && (
+                      <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg hidden sm:inline">
+                        {event.result}
+                      </span>
+                    )}
+                    {failed ? (
+                      <AlertCircle className="w-4 h-4 text-rose-500" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );

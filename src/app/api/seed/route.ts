@@ -1,16 +1,25 @@
-import { NextResponse } from "next/server";
-import { seedDatabase } from "@/db/seed";
+import { cookies } from "next/headers";
+import { resetDatabase } from "@/db/seed";
+import { route, ok } from "@/lib/api";
+import { SESSION_COOKIE } from "@/lib/auth";
 
-export async function POST() {
-  try {
-    await seedDatabase();
-    return NextResponse.json({ success: true, message: "Database seeded successfully" });
-  } catch (error) {
-    console.error("Failed to seed database:", error);
-    return NextResponse.json({ success: false, error: "Database seed failed" }, { status: 500 });
-  }
-}
+export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return POST();
-}
+/**
+ * POST /api/seed — wipe and re-seed the demo dataset.
+ *
+ * This is destructive, so it is POST-only (a GET handler here meant any
+ * crawler or prefetch could nuke the database). Every user row is deleted,
+ * which cascades to sessions, so we also clear the caller's cookie.
+ */
+export const POST = route(async () => {
+  await resetDatabase();
+
+  const res = ok({
+    success: true,
+    message: "Demo data has been reset. Sign in again with demo1234.",
+  });
+  res.cookies.set(SESSION_COOKIE, "", { path: "/", expires: new Date(0) });
+  void (await cookies());
+  return res;
+});
